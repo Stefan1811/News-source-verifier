@@ -1,0 +1,22 @@
+- Stefan Bodescu:
+  1. Created Github repository and ReadME 
+  2. Created info files
+  3. Contributed to State-of-the-art document
+
+- Miruna Curduman
+  1. Created Trello
+  2. Contributed to State-of-the-art document
+
+- Cristina Pichiu:
+  1. Contributed to State-of-the-art document
+
+- Iustin Enea:
+  1. Contributed to State-of-the-art document
+
+- Robert Barbulescu:
+  1. Contributed to State-of-the-art document
+  
+- Valentin Borfalau:
+  1. Contributed to State-of-the-art document
+  2. Contributed to ReadME
+ 
