@@ -6,10 +6,10 @@ In the world we live in, any news we read can be fake news. Whether we are talki
 The purpose of this system is to receive news in the form of a link and to answer with a list of similar, reliable sources and a “Trust-score” to verify the authenticity of the news. We can also look at Twitter's Community Notes if they exist for that news as well. The project can be done using ML/AI or even traditional scrapping.
 
 ## Team Members:
--Cosmin Irimia- **Coordinator**
--Robert Barbulescu- **Member**
--Stefan Bodescu- **Member**
--Valentin Borfalau- **Member**
--Miruna Curduman- **Member**
--Cristina Pichiu- **Member**
--Iustin Enea- **Member**
+- Cosmin Irimia- **Coordinator**
+- Robert Barbulescu- **Member**
+- Stefan Bodescu- **Member**
+- Valentin Borfalau- **Member**
+- Miruna Curduman- **Member**
+- Cristina Pichiu- **Member**
+- Iustin Enea- **Member**
