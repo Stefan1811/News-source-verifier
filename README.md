@@ -7,6 +7,7 @@
  The purpose of this system is to receive news in the form of a link and to answer with a list of similar, reliable sources and a “Trust-score” to verify the authenticity of the news. We can also look at Twitter's Community Notes if they exist for that news as well. The project can be done using ML/AI or even traditional scrapping.
 
 ## Trello: [link](https://trello.com/b/k4doE2Qo/aset-news-source-verifier)
+## Google Drive: [link](https://drive.google.com/drive/u/1/folders/1tYZw6VzmH_XQIJJx3vSe__DSR4s5_UCe)
 ## State-of-the-art: [link](https://docs.google.com/document/d/1NuzTOKdyk5xh-JmFJZ9gnQGj1xoRKribmAO0OLRrQ_c/edit)
 
 ## Team Members:
