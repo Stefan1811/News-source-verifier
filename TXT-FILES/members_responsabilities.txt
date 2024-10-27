@@ -2,21 +2,27 @@
   1. Created Github repository and ReadME 
   2. Created info files
   3. Contributed to State-of-the-art document
+  4. Created system diagram and ML Model Use case diagram
 
 - Miruna Curduman
   1. Created Trello
   2. Contributed to State-of-the-art document
+  3. Created Container and Dynamic C4 diagrams
 
 - Cristina Pichiu:
   1. Contributed to State-of-the-art document
+  2. Created Context and Components C4 diagrams
 
 - Iustin Enea:
   1. Contributed to State-of-the-art document
+  2. Created Class diagram and Scraping Engine Use case diagram
 
 - Robert Barbulescu:
   1. Contributed to State-of-the-art document
-  
+  2. Created Package and Sequence UML diagrams
+
 - Valentin Borfalau:
   1. Contributed to State-of-the-art document
   2. Contributed to ReadME
+  3. Created User and Admin Use Case diagrams
  
