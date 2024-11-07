@@ -21,22 +21,24 @@ class MLModel(ABC):
     def load_model(self, model_path: str):
         """
         Loads the TensorFlow model from a given path.
+        For testing, we will simulate model loading.
         """
-        pass
-
+        self.model = "mock_model"  
 
     def preprocess(self, article_text: str):
         """
         Preprocesses raw article text for prediction.
+        For testing, we will simulate preprocessing by returning the uppercase text.
         """
-        pass
-
+        return article_text.upper()
 
     def predict(self, processed_text):
         """
         Runs the prediction on preprocessed text.
+        For testing, this will return a mock prediction result.
         """
-        pass
+      
+        return {"raw_prediction": 0.8}  
 
     def get_prediction(self, article_text: str):
         """
