@@ -1,5 +1,5 @@
 import tensorflow as tf
-from abc import ABC, abstractmethod
+from abc import ABC
 
 class MLModel(ABC):
     """
@@ -18,21 +18,20 @@ class MLModel(ABC):
             cls._instance = super(MLModel, cls).__new__(cls)
         return cls._instance
 
-    @abstractmethod
     def load_model(self, model_path: str):
         """
         Loads the TensorFlow model from a given path.
         """
         pass
 
-    @abstractmethod
+
     def preprocess(self, article_text: str):
         """
         Preprocesses raw article text for prediction.
         """
         pass
 
-    @abstractmethod
+
     def predict(self, processed_text):
         """
         Runs the prediction on preprocessed text.

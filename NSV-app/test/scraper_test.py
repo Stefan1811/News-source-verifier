@@ -3,7 +3,6 @@ import requests
 from unittest.mock import patch
 
 from newspaper import Article
-
 from ..models.scraper_engine import ScraperFactory, BeautifulSoupScraper, TweepyScraper, TwarcScraper
 class ScraperFactoryTest(unittest.TestCase):
     def test_create_scraper_valid_types(self):
