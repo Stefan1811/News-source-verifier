@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import requests
+from ..models.article import Article
 from bs4 import BeautifulSoup
-from newspaper import Article
 import time
 import logging
 import re
@@ -222,13 +222,11 @@ class BeautifulSoupScraper(Scraper):
                 logging.warning("Failed to decode JSON-LD data for author extraction.")
 
     def process_data(self, data):
+        """Process the extracted data into an Article object."""
         url, title, content, author, publish_date = data
-        article = Article(url)
-        article.title = title
-        article.text = content
-        article.authors = [author]
-        article.publish_date = publish_date
+        article = Article(url, title, content, [author], publish_date)
         return article
+
 class TweepyScraper(Scraper):
     def extract_data(self, url):
         pass
@@ -250,3 +248,20 @@ class ScraperFactory:
         else:
             raise ValueError('Invalid scraper type')
         return scraper
+
+
+#main to test
+if __name__ == '__main__':
+    url = "https://www.bbc.com/news/articles/ce8dz0n8xldo"
+    scraper = ScraperFactory.create_scraper('beautifulsoup')
+    data = scraper.extract_data(url)
+    if data:
+        article = scraper.process_data(data)
+        #print all the data
+        print(article.url)
+        print(article.title)
+        print(article.content)
+        print(article.author)
+        print(article.publish_date)
+    else:
+        print("Failed to extract data from the URL.")

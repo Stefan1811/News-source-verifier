@@ -1,8 +1,6 @@
 import unittest
 import requests
 from unittest.mock import patch
-
-from newspaper import Article
 from ..models.scraper_engine import ScraperFactory, BeautifulSoupScraper, TweepyScraper, TwarcScraper
 class ScraperFactoryTest(unittest.TestCase):
     def test_create_scraper_valid_types(self):
@@ -60,11 +58,10 @@ class BeautifulSoupScraperTests(unittest.TestCase):
         article = self.scraper.process_data(sample_data)
 
         # Assertions
-        self.assertIsInstance(article, Article)  # Check if article is an instance of Article
         self.assertEqual(article.url, "http://example.com")
         self.assertEqual(article.title, "Sample Title")
-        self.assertEqual(article.text, "This is sample content.")
-        self.assertEqual(article.authors, ["John Doe"])
+        self.assertEqual(article.content, "This is sample content.")
+        self.assertEqual(article.author, ["John Doe"])
         self.assertEqual(article.publish_date, "2024-11-07")
 
 if __name__ == '__main__':
