@@ -1,62 +1,35 @@
-2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: edit_trustscore_parameters with arguments: ({'threshold': 0.8, 'weight_factor': 1.2},)
-2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: manage_users with arguments: ('add', {'user_data': {'user_id': 2, 'username': 'newuser', 'email': 'new@example.com'}})
-2024-11-11 19:47:11 - Calling method: manage_users with arguments: ('remove', {'user_id': 2})
-2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: view_all_verifications with arguments: ()
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'testuser', 'test@example.com')
-2024-11-11 19:47:11 - Calling method: get_user_info with arguments: ()
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'testuser', 'test@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'testuser', 'test@example.com')
-2024-11-11 19:47:11 - Calling method: verify_article with arguments: ({'id': 1, 'content': 'Test article'},)
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'testuser', 'test@example.com')
-2024-11-11 19:47:11 - Calling method: view_verification_result with arguments: (1,)
-2024-11-11 19:47:11 - Creating user with role: user
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (1, 'testuser', 'test@example.com')
-2024-11-11 19:47:11 - Creating user with role: admin
-2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (2, 'adminuser', 'admin@example.com')
-2024-11-11 19:47:11 - Calling method: __init__ with arguments: (2, 'adminuser', 'admin@example.com')
-
-
-2024-11-11 20:23:26,763 - INFO - Executing MLModel.load_model with arguments: dummy_path
-2024-11-11 20:23:26,764 - INFO - load_model took 0.0000 seconds
-2024-11-11 20:23:26,764 - INFO - Executing MLModel.get_prediction with arguments: Acesta este un text de test pentru modelul ML.
-2024-11-11 20:23:26,764 - INFO - Executing MLModel.preprocess with arguments: Acesta este un text de test pentru modelul ML.
-2024-11-11 20:23:26,764 - INFO - preprocess took 0.0000 seconds
-2024-11-11 20:23:26,764 - INFO - Executing MLModel.predict with arguments: ACESTA ESTE UN TEXT DE TEST PENTRU MODELUL ML.
-2024-11-11 20:23:26,764 - INFO - predict took 0.0000 seconds
-2024-11-11 20:23:26,764 - INFO - get_prediction took 0.0000 seconds
-2024-11-11 20:34:34 - INFO - 2024-11-11 20:34:34 - BeautifulSoupScraper.extract_data called with arguments: ('http://example.com',)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_content called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.clean_text called with arguments: (<div class="article-content">Example content</div>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_metadata called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_json_ld called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_html called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_publish_date called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_metadata called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_html called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_json_ld called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_regex called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
-2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_data called with arguments: ('http://nonexistenturl.com',)
-2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - BeautifulSoupScraper.process_data called with arguments: (('http://example.com', 'Sample Title', 'This is sample content.', 'John Doe', '2024-11-07'),)
-2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
-2024-11-11 20:34:38 - ERROR - 2024-11-11 20:34:38 - str.create_scraper failed with error: Invalid scraper type
-2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
-2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
-2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
-2024-11-11 21:18:55 - Calling Article.analyze_sentiment with args=(), kwargs={}
-2024-11-11 21:18:55 - Article.analyze_sentiment returned: 0.0
-2024-11-11 21:18:55 - Calling Article.check_consistency with args=(), kwargs={}
-2024-11-11 21:18:55 - Article.check_consistency returned: 0.3
-2024-11-11 21:18:55 - Calling Article.__str__ with args=(), kwargs={}
-2024-11-11 21:18:55 - Article.__str__ returned: Title: Sample Title, Author: Author Name, Status: unverified
-2024-11-12 00:15:43 - str.create_scraper called with arguments: ()
-2024-11-12 00:36:17 - str.create_scraper called with arguments: ('beautifulsoup',), keyword arguments: {}
-2024-11-12 00:36:17 - BeautifulSoupScraper.extract_data called with arguments: (<__main__.BeautifulSoupScraper object at 0x000002CB07C99C50>, 'https://www.bbc.com/news/articles/ce8dz0n8xldo'), keyword arguments: {}
+2024-11-12 01:25:06 - Calling method: Admin.__init__ with arguments: (1, 'admin', 'test@email.org')
+2024-11-12 01:25:06 - Calling method: __init__ with arguments: (1, 'admin', 'test@email.org')
+2024-11-12 01:25:06 - Calling method: manage_users with arguments: ('add', {'username': 'user1', 'email': 'user@email.org'})
+2024-11-12 01:25:06 - Calling method: view_all_verifications with arguments: ()
+2024-11-12 01:25:06 - Calling method: edit_trustscore_parameters with arguments: ({'param1': 0.5, 'param2': 0.3},)
+2024-11-12 01:25:38,255 - INFO - [2024-11-12 01:25:38] Entering ArticleParser.extract_article_text
+2024-11-12 01:25:38,753 - ERROR - [2024-11-12 01:25:38] Error in ArticleParser.extract_article_text: Error fetching the article: HTTPSConnectionPool(host='thisurldoesnotexist.fake', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x0000018DC5F431C0>: Failed to resolve 'thisurldoesnotexist.fake' ([Errno 11001] getaddrinfo failed)"))
+2024-11-12 01:25:38,757 - INFO - [2024-11-12 01:25:38] Entering ArticleParser.extract_article_text
+2024-11-12 01:25:38,959 - INFO - [2024-11-12 01:25:38] Entering ArticleParser.remove_unwanted_content
+2024-11-12 01:25:38,973 - INFO - [2024-11-12 01:25:38] Exiting ArticleParser.remove_unwanted_content
+2024-11-12 01:25:38,974 - INFO - [2024-11-12 01:25:38] Exiting ArticleParser.extract_article_text
+2024-11-12 01:25:38,975 - INFO - [2024-11-12 01:25:38] Entering KeywordExtractor.extract_keywords
+2024-11-12 01:25:38,975 - INFO - [2024-11-12 01:25:38] Exiting KeywordExtractor.extract_keywords
+2024-11-12 01:25:38,976 - INFO - [2024-11-12 01:25:38] Entering KeywordExtractor.extract_keywords
+2024-11-12 01:25:38,976 - INFO - [2024-11-12 01:25:38] Exiting KeywordExtractor.extract_keywords
+2024-11-12 01:25:38,977 - INFO - [2024-11-12 01:25:38] Entering KeywordExtractor.extract_keywords
+2024-11-12 01:25:38,977 - INFO - [2024-11-12 01:25:38] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,020 - INFO - [2024-11-12 01:25:38] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,020 - INFO - [2024-11-12 01:25:39] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,020 - INFO - [2024-11-12 01:25:39] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,020 - INFO - [2024-11-12 01:25:39] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,021 - INFO - [2024-11-12 01:25:39] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,021 - INFO - [2024-11-12 01:25:39] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,021 - INFO - [2024-11-12 01:25:39] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,021 - INFO - [2024-11-12 01:25:39] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,022 - INFO - [2024-11-12 01:25:39] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,022 - INFO - [2024-11-12 01:25:39] Entering TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,022 - INFO - [2024-11-12 01:25:39] Exiting TextBlobSentimentAnalyzer.analyze_text
+2024-11-12 01:25:39,022 - INFO - [2024-11-12 01:25:38] Exiting KeywordExtractor.extract_keywords
+2024-11-12 01:26:15 - Calling Article.analyze_sentiment with args=(), kwargs={}
+2024-11-12 01:26:15 - Article.analyze_sentiment returned: 0.0
+2024-11-12 01:26:15 - Calling Article.check_consistency with args=(), kwargs={}
+2024-11-12 01:26:15 - Article.check_consistency returned: 0.3
+2024-11-12 01:26:15 - Calling Article.__str__ with args=(), kwargs={}
+2024-11-12 01:26:15 - Article.__str__ returned: Title: Sample Title, Author: Author Name, Status: unverified

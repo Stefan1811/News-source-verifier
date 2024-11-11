@@ -1,5 +1,8 @@
 import unittest
-from src.article_processing import ArticleParser, KeywordExtractor, TextBlobSentimentAnalyzer  
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.nlp_analyzer import ArticleParser, KeywordExtractor, TextBlobSentimentAnalyzer  
 
 class TestArticleProcessing(unittest.TestCase):
 

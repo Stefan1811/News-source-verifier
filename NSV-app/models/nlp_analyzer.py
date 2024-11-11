@@ -13,7 +13,7 @@ from datetime import datetime
 nltk.download('stopwords')
 
 # Set up logging configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='logs.txt',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Helper to get the class name from instance methods
 def get_class_name(instance):
