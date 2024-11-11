@@ -51,3 +51,9 @@
 2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
 2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
 2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
+2024-11-11 21:18:55 - Calling Article.analyze_sentiment with args=(), kwargs={}
+2024-11-11 21:18:55 - Article.analyze_sentiment returned: 0.0
+2024-11-11 21:18:55 - Calling Article.check_consistency with args=(), kwargs={}
+2024-11-11 21:18:55 - Article.check_consistency returned: 0.3
+2024-11-11 21:18:55 - Calling Article.__str__ with args=(), kwargs={}
+2024-11-11 21:18:55 - Article.__str__ returned: Title: Sample Title, Author: Author Name, Status: unverified
