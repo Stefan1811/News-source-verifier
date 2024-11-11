@@ -57,3 +57,6 @@
 2024-11-11 21:18:55 - Article.check_consistency returned: 0.3
 2024-11-11 21:18:55 - Calling Article.__str__ with args=(), kwargs={}
 2024-11-11 21:18:55 - Article.__str__ returned: Title: Sample Title, Author: Author Name, Status: unverified
+2024-11-12 00:15:43 - str.create_scraper called with arguments: ()
+2024-11-12 00:36:17 - str.create_scraper called with arguments: ('beautifulsoup',), keyword arguments: {}
+2024-11-12 00:36:17 - BeautifulSoupScraper.extract_data called with arguments: (<__main__.BeautifulSoupScraper object at 0x000002CB07C99C50>, 'https://www.bbc.com/news/articles/ce8dz0n8xldo'), keyword arguments: {}
