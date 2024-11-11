@@ -22,3 +22,13 @@
 2024-11-11 19:47:11 - Creating user with role: admin
 2024-11-11 19:47:11 - Calling method: Admin.__init__ with arguments: (2, 'adminuser', 'admin@example.com')
 2024-11-11 19:47:11 - Calling method: __init__ with arguments: (2, 'adminuser', 'admin@example.com')
+
+
+2024-11-11 20:23:26,763 - INFO - Executing MLModel.load_model with arguments: dummy_path
+2024-11-11 20:23:26,764 - INFO - load_model took 0.0000 seconds
+2024-11-11 20:23:26,764 - INFO - Executing MLModel.get_prediction with arguments: Acesta este un text de test pentru modelul ML.
+2024-11-11 20:23:26,764 - INFO - Executing MLModel.preprocess with arguments: Acesta este un text de test pentru modelul ML.
+2024-11-11 20:23:26,764 - INFO - preprocess took 0.0000 seconds
+2024-11-11 20:23:26,764 - INFO - Executing MLModel.predict with arguments: ACESTA ESTE UN TEXT DE TEST PENTRU MODELUL ML.
+2024-11-11 20:23:26,764 - INFO - predict took 0.0000 seconds
+2024-11-11 20:23:26,764 - INFO - get_prediction took 0.0000 seconds
