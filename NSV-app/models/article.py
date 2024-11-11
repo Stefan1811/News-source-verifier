@@ -1,5 +1,35 @@
+import os
 import re
+import sys
+
 from textblob import TextBlob
+import logging
+log_file_path = os.path.join("..", "..", "logs.txt")
+
+logging.basicConfig(
+    filename=log_file_path,
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+def log_method_call(func):
+    """returnată
+    Decorator pentru apelurile functiilor, numele functiei, argumentele si valoarea returnata.
+    """
+    def wrapper(*args, **kwargs):
+        class_name = args[0].__class__.__name__
+        method_name = func.__name__
+
+        logging.info(f"Calling {class_name}.{method_name} with args={args[1:]}, kwargs={kwargs}")
+
+        result = func(*args, **kwargs)
+
+        logging.info(f"{class_name}.{method_name} returned: {result}")
+
+        return result
+    return wrapper
+
 
 class Article:
     """
@@ -19,6 +49,7 @@ class Article:
         self.trust_score = None  # Score representing the article's credibility
         self.status = "unverified"  # Status of the article: "unverified" or "verified"
 
+    @log_method_call
     def analyze_sentiment(self):
         """
         Analyzes the sentiment of the article's content.
@@ -27,6 +58,8 @@ class Article:
         # Use TextBlob to perform sentiment analysis
         blob = TextBlob(self.content)
         self.sentiment_subjectivity = blob.sentiment.subjectivity
+        return self.sentiment_subjectivity
+
 
     def extract_keywords(self):
         """
@@ -37,6 +70,7 @@ class Article:
         keywords = re.findall(r'\w+', self.content)
         return list(set(keywords))[:3]
 
+    @log_method_call
     def check_consistency(self):
         """
         Checks the consistency of the content to assess credibility.
@@ -49,7 +83,9 @@ class Article:
         else:
             self.status = "verified"
             self.content_consistency = 0.9
+        return self.content_consistency
 
+    @log_method_call
     def calculate_trust_score(self, strategy):
         """
         Calculates the final trust score based on the selected strategy.
@@ -57,9 +93,20 @@ class Article:
         self.trust_score = strategy.calculate_trust_score(self)
         return self.trust_score
 
+    @log_method_call
     def __str__(self):
         """
         Returns a string summary of the article with title, author, and status.
         - Example: "Title: [Title], Author: [Author], Status: [Status]"
         """
         return f"Title: {self.title}, Author: {self.author}, Status: {self.status}"
+
+if __name__ == "__main__":
+    article = Article("https://example.com", "Sample Title", "This content could contain misinformation.", "Author Name", "2024-11-11")
+    print(article.analyze_sentiment())
+    print(article.extract_keywords())
+    print(article.check_consistency())
+    # Presupunem că avem o strategie implementată cu o metodă `calculate_trust_score`
+    # În exemplul de mai jos, trebuie definită strategia înainte de a o folosi
+    # print(article.calculate_trust_score(strategy))
+    print(article)
