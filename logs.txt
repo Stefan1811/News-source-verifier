@@ -32,3 +32,22 @@
 2024-11-11 20:23:26,764 - INFO - Executing MLModel.predict with arguments: ACESTA ESTE UN TEXT DE TEST PENTRU MODELUL ML.
 2024-11-11 20:23:26,764 - INFO - predict took 0.0000 seconds
 2024-11-11 20:23:26,764 - INFO - get_prediction took 0.0000 seconds
+2024-11-11 20:34:34 - INFO - 2024-11-11 20:34:34 - BeautifulSoupScraper.extract_data called with arguments: ('http://example.com',)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_content called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.clean_text called with arguments: (<div class="article-content">Example content</div>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_metadata called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_json_ld called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_author_html called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_publish_date called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_metadata called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_html called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_json_ld called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_published_date_regex called with arguments: (<html><head><title>Example Title</title></head><body><h1>Example Title</h1><div class="article-content">Example content</div><span class="author">John Doe</span></body></html>,)
+2024-11-11 20:34:35 - INFO - 2024-11-11 20:34:35 - BeautifulSoupScraper.extract_data called with arguments: ('http://nonexistenturl.com',)
+2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - BeautifulSoupScraper.process_data called with arguments: (('http://example.com', 'Sample Title', 'This is sample content.', 'John Doe', '2024-11-07'),)
+2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
+2024-11-11 20:34:38 - ERROR - 2024-11-11 20:34:38 - str.create_scraper failed with error: Invalid scraper type
+2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
+2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
+2024-11-11 20:34:38 - INFO - 2024-11-11 20:34:38 - str.create_scraper called with arguments: ()
