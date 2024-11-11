@@ -29,12 +29,18 @@ class BeautifulSoupScraperTests(unittest.TestCase):
     def test_bss_extract_data(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.content = (
-            "<html><head><title>Example Title</title></head>"
-            "<body><h1>Example Title</h1><div class='article-content'>Example content</div></body></html>"
+            "<html>"
+            "<head><title>Example Title</title></head>"
+            "<body>"
+            "<h1>Example Title</h1>"
+            "<div class='article-content'>Example content</div>"
+            "<span class='author'>John Doe</span>"  # Adding an author element for testing
+            "</body>"
+            "</html>"
         )
 
         url = "http://example.com"
-        expected_data = (url, "Example Title", "Example content", "Unknown Author", "Unknown Date")
+        expected_data = (url, "Example Title", "Example content", "John Doe", "Unknown Date")
         result = self.scraper.extract_data(url)
         self.assertEqual(result, expected_data)
 
