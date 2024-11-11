@@ -1,7 +1,10 @@
 import unittest
 import requests
 from unittest.mock import patch
-from ..models.scraper_engine import ScraperFactory, BeautifulSoupScraper, TweepyScraper, TwarcScraper
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.scraper_engine import ScraperFactory, BeautifulSoupScraper, TweepyScraper, TwarcScraper
 class ScraperFactoryTest(unittest.TestCase):
     def test_create_scraper_valid_types(self):
         # Test valid scraper types
