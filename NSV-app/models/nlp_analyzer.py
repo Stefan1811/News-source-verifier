@@ -1,7 +1,7 @@
 import logging
 import requests
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from nltk.corpus import stopwords
 from textblob import TextBlob
 from bs4 import BeautifulSoup
@@ -12,14 +12,11 @@ from datetime import datetime
 
 nltk.download('stopwords')
 
-# Set up logging configuration
-logging.basicConfig(filename='logs.txt',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Helper to get the class name from instance methods
 def get_class_name(instance):
     return instance.__class__.__name__
 
-# Define a decorator for logging
 def log_execution(func):
     def wrapper(self, *args, **kwargs):
         class_name = get_class_name(self)
@@ -37,27 +34,44 @@ def log_execution(func):
     return wrapper
 
 class KeywordExtractor:
-    def __init__(self, sentiment_analyzer):
-        self.sentiment_analyzer = sentiment_analyzer
+    def __init__(self, sentiment_analyzers):
+        self.sentiment_analyzers = sentiment_analyzers
         self.stop_words = set(stopwords.words('english'))
 
     @log_execution
     def extract_keywords(self, text):
-        words = [word.lower() for word in re.findall(r'\b\w+\b', text) if word.lower() not in self.stop_words]
-        word_freq = Counter(words)
+        sentences = text.split('.') 
+        word_freq = Counter(re.findall(r'\b\w+\b', text.lower()))
+        
+        keyword_sentiments = defaultdict(lambda: {"frequency": 0, "vader_score": 0, "sentiment_counts": Counter()})
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            words = [word for word in re.findall(r'\b\w+\b', sentence.lower()) if word not in self.stop_words]
+            for word in words:
+                keyword_sentiments[word]["frequency"] += 1
+                
+                for analyzer in self.sentiment_analyzers:
+                    result = analyzer.analyze_text(sentence)
+                    
+                    if "vader_score" in result:
+                        keyword_sentiments[word]["vader_score"] += result["vader_score"]
+                    
+                    keyword_sentiments[word]["sentiment_counts"][result["sentiment"]] += 1
 
-        keyword_sentiments = {}
-        for word in word_freq:
-            sentiment = self.sentiment_analyzer.analyze_text(word)
-            keyword_sentiments[word] = (word_freq[word], sentiment["sentiment"])
+        for word, data in keyword_sentiments.items():
+            data["vader_score"] /= data["frequency"]  
+            data["sentiment"] = data["sentiment_counts"].most_common(1)[0][0]
 
-        return keyword_sentiments
+        sorted_keywords = dict(sorted(keyword_sentiments.items(), key=lambda item: item[1]["frequency"], reverse=True))
+        return sorted_keywords
+
 
     @log_execution
     def save_keywords_to_file(self, keywords, filename="keywords_summary.txt"):
         with open(filename, "w", encoding="utf-8") as file:
-            for word, (freq, sentiment) in keywords.items():
-                file.write(f"Keyword: {word}, Frequency: {freq}, Sentiment: {sentiment}\n")
+            for word, data in keywords.items():
+                file.write(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}\n")
         logging.info(f"Keywords saved to {filename}")
 
 class ArticleSummary:
@@ -133,30 +147,14 @@ class VaderSentimentAnalyzer(SentimentAnalyzer):
     def analyze_text(self, text):
         score = self.analyzer.polarity_scores(text)['compound']
         sentiment = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"
-        return {"sentiment": sentiment}
-
-class ArticleVerifier:
-    def __init__(self):
-        self.parser = ArticleParser()
-        self.sentiment_analyzer = TextBlobSentimentAnalyzer() 
-
-    @log_execution
-    def process_article(self, url):
-        article_text = self.parser.extract_article_text(url)
-        sentiment = self.sentiment_analyzer.analyze_text(article_text)
-        analysis_results = {
-            "sentiment": sentiment["sentiment"],
-            "article_text": article_text[:30000]
-        }
-        return analysis_results
+        return {"sentiment": sentiment, "vader_score": score}
 
 
 def main():
- 
-    url = "https://www.digi24.ro/stiri/actualitate/trump-este-primul-inculpat-penal-ales-presedinte-ce-se-intampla-acum-cu-dosarele-sale-penale-si-civile-2997019" 
+    url = "https://edition.cnn.com/2024/11/12/politics/trump-team-loyalists-analysis/index.html"
 
-    sentiment_analyzer = TextBlobSentimentAnalyzer()
-    keyword_extractor = KeywordExtractor(sentiment_analyzer)
+    sentiment_analyzers = [TextBlobSentimentAnalyzer(), VaderSentimentAnalyzer()]
+    keyword_extractor = KeywordExtractor(sentiment_analyzers)
     parser = ArticleParser()
 
     try:
@@ -164,15 +162,13 @@ def main():
         parser.save_article_text_to_file(article_text, "article_text.txt")
         print("Article text saved to 'article_text.txt'.")
 
-
         keywords = keyword_extractor.extract_keywords(article_text)
         keyword_extractor.save_keywords_to_file(keywords, "keywords_summary.txt")
         print("Keywords and their sentiments saved to 'keywords_summary.txt'.")
 
-
         print("\nExtracted Keywords and Sentiments:")
-        for word, (freq, sentiment) in keywords.items():
-            print(f"Keyword: {word}, Frequency: {freq}, Sentiment: {sentiment}")
+        for word, data in keywords.items():
+            print(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}")
 
     except Exception as e:
         print(f"An error occurred: {e}")
