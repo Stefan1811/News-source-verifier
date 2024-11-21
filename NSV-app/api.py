@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # Database configuration
 # Note: Using 'postgresql://' instead of 'postgres://'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_dWN9U8tAIxdxc5b-ByF@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'URI'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy with error handling
