@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # Database configuration
 # Note: Using 'postgresql://' instead of 'postgres://'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'URI'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_dWN9U8tAIxdxc5b-ByF@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy with error handling
@@ -27,7 +27,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
+    
     def to_dict(self):
         return {
             'id': self.user_id,
