@@ -1,0 +1,20 @@
+2024-11-21 23:42:25 - Calling method: Admin.__init__ with arguments: (1, 'admin', 'test@email.org')
+2024-11-21 23:42:25 - Calling method: __init__ with arguments: (1, 'admin', 'test@email.org')
+2024-11-21 23:42:25 - Calling method: manage_users with arguments: ('add', {'username': 'user1', 'email': 'user@email.org'})
+2024-11-21 23:42:25 - Calling method: view_all_verifications with arguments: ()
+2024-11-21 23:42:25 - Calling method: edit_trustscore_parameters with arguments: ({'param1': 0.5, 'param2': 0.3},)
+2024-11-21 23:42:39 - Calling Article.analyze_sentiment with args=(), kwargs={}
+2024-11-21 23:42:39 - Article.analyze_sentiment returned: 0.0
+2024-11-21 23:42:39 - Calling Article.check_consistency with args=(), kwargs={}
+2024-11-21 23:42:39 - Article.check_consistency returned: 0.3
+2024-11-21 23:42:39 - Calling Article.__str__ with args=(), kwargs={}
+2024-11-21 23:42:39 - Article.__str__ returned: Title: Sample Title, Author: Author Name, Status: unverified
+2024-11-21 23:42:44 - str.create_scraper called with arguments: ('beautifulsoup',), keyword arguments: {}
+2024-11-21 23:42:44 - BeautifulSoupScraper.extract_data called with arguments: (<__main__.BeautifulSoupScraper object at 0x00000234DB6DC4F0>, 'https://www.bbc.com/news/articles/ce8dz0n8xldo'), keyword arguments: {}
+2024-11-21 23:44:07 - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-11-21 23:44:07 - [33mPress CTRL+C to quit[0m
+2024-11-21 23:44:07 -  * Restarting with stat
+2024-11-21 23:44:09 -  * Debugger is active!
+2024-11-21 23:44:09 -  * Debugger PIN: 138-147-471
+2024-11-21 23:44:36 -  * Detected change in 'c:\\Users\\borfa\\Desktop\\Facultate\\ASET\\News-source-verifier\\NSV-app\\api.py', reloading
