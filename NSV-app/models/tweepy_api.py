@@ -75,7 +75,7 @@ class TweepyScraper:
 
 
 if __name__ == '__main__':
-    BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAPl7xAEAAAAAMTNUCxiH%2Bmm4C5SonA5P8mGKdmU%3DDPCVHmnmnOcFzoMNkHCMpYesGYB939o7BmZT2T6OOyQgd8v3RH"
+    BEARER_TOKEN = "bearer_token"
 
     scraper = TweepyScraper(BEARER_TOKEN)
 
