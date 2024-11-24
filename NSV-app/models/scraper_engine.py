@@ -1,15 +1,9 @@
-from abc import ABC, abstractmethod
 import requests
-import os 
-import sys 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from models.article import Article
 from bs4 import BeautifulSoup
-import time
 import logging
+import time
 import re
 import json
-from functools import wraps
 
 # Configure logging format with timestamp
 logging.basicConfig(
@@ -21,43 +15,29 @@ logging.basicConfig(
 
 def log_error(func):
     """Error-handling decorator."""
-    @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            class_name = args[0].__class__.__name__ if args else 'UnknownClass'
-            function_name = func.__name__
-            logging.error(f"{class_name}.{function_name} failed with error: {e}")
+            logging.error(f"{func.__name__} failed with error: {e}")
             raise e
     return wrapper
+
 def log_execution(func):
-    """Decorator for logging method execution and return values."""
-    @wraps(func)
+    """Decorator for logging method execution."""
     def wrapper(*args, **kwargs):
-        class_name = args[0].__class__.__name__ if args else 'UnknownClass'
-        function_name = func.__name__
-        logging.info(f"{class_name}.{function_name} called with arguments: {args}, keyword arguments: {kwargs}")
+        logging.info(f"Calling {func.__name__} with args: {args} and kwargs: {kwargs}")
         result = func(*args, **kwargs)
         return result
     return wrapper
 
-class Scraper(ABC):
-    """Abstract Scraper class for web scraping."""
+class BeautifulSoupScraper:
+    """A scraper class using BeautifulSoup to extract data from web pages."""
 
-    @abstractmethod
-    def extract_data(self, url):
-        pass
-
-    def process_data(self, data):
-        """Method for transforming data into a specified format after extraction."""
-        pass
-
-
-class BeautifulSoupScraper(Scraper):
     @log_error
     @log_execution
     def extract_data(self, url):
+        """Extracts data from a webpage."""
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -71,16 +51,16 @@ class BeautifulSoupScraper(Scraper):
                 response = requests.get(url, headers=headers, timeout=10)
                 if response.status_code == 200:
                     break
-            finally:
-                time.sleep(1)
+            except requests.RequestException as e:
+                logging.error(f"Request failed (Attempt {attempt + 1}): {e}")
+                time.sleep(2)
         else:
+            logging.error("Failed to retrieve webpage after multiple attempts.")
             return None
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        title_selectors = ['h1', 'title', 'div.article-title']
-
-        title = self.extract_text(soup, title_selectors) or "Unknown Title"
+        title = self.extract_text(soup, ['h1', 'title', 'div.article-title']) or "Unknown Title"
         content = self.extract_content(soup) or "No content available"
         author = self.extract_author(soup) or "Unknown Author"
         publish_date = self.extract_publish_date(soup) or "Unknown Date"
@@ -88,29 +68,33 @@ class BeautifulSoupScraper(Scraper):
         if title == "Unknown Title" or content == "No content available":
             logging.warning(f"Essential data missing from URL: {url}")
 
-        return url, title, content, author, publish_date
+        return {
+            "url": url,
+            "title": title,
+            "content": content,
+            "author": author,
+            "publish_date": publish_date
+        }
 
+    @log_error
     def extract_text(self, soup, selectors):
+        """Extract text using a list of CSS selectors."""
         for selector in selectors:
             element = soup.select_one(selector)
             if element:
-                if element.name == 'meta':
-                    return element.get('content', '').strip()
                 return element.get_text(strip=True)
         return None
 
     @log_error
     def extract_publish_date(self, soup):
-        """Extracts the publish date of the article from the HTML content. """
-        publish_date = (
+        """Extracts the publish date of the article from the HTML content."""
+        return (
             self.extract_published_date_metadata(soup) or
             self.extract_published_date_html(soup) or
             self.extract_published_date_json_ld(soup) or
             self.extract_published_date_regex(soup)
         )
-        return publish_date
 
-    @log_error
     def extract_published_date_metadata(self, soup):
         """Extract the published date from metadata tags."""
         date_tag = soup.find('meta', attrs={'property': 'article:published_time'})
@@ -118,7 +102,6 @@ class BeautifulSoupScraper(Scraper):
             return date_tag.get('content', '').strip()
         return None
 
-    @log_error
     def extract_published_date_html(self, soup):
         """Extract the published date from HTML selectors."""
         date_selectors = [
@@ -131,7 +114,6 @@ class BeautifulSoupScraper(Scraper):
                 return element.get_text(strip=True) if element.name != 'meta' else element.get('content', '').strip()
         return None
 
-    @log_error
     def extract_published_date_json_ld(self, soup):
         """Extract the dateModified from JSON-LD metadata."""
         json_ld_script = soup.find("script", type="application/ld+json")
@@ -140,12 +122,11 @@ class BeautifulSoupScraper(Scraper):
                 json_data = json.loads(json_ld_script.string)
                 if isinstance(json_data, list):
                     json_data = json_data[0]  # Handle array case
-                return json_data.get('dateModified')  # Return dateModified instead of datePublished
+                return json_data.get('dateModified')
             except json.JSONDecodeError:
                 logging.warning("Failed to decode JSON-LD data for published date extraction.")
         return None
 
-    @log_error
     def extract_published_date_regex(self, soup):
         """Extract the published date using regex patterns."""
         date_patterns = [re.compile(r'Published on\s+(\w+\s\d{1,2},\s\d{4})')]
@@ -158,9 +139,9 @@ class BeautifulSoupScraper(Scraper):
 
     @log_error
     def extract_content(self, soup):
-        # Exclude common non-article sections
+        """Extracts the main content of the article."""
         for tag in soup(['header', 'footer', 'nav', 'aside', 'form', 'iframe']):
-            tag.decompose()
+            tag.decompose()  # Remove non-content elements
 
         content_selectors = ['div.article-content', 'div.content-body', 'div.post-content']
         for selector in content_selectors:
@@ -174,123 +155,37 @@ class BeautifulSoupScraper(Scraper):
         ]
         return "\n".join(filtered_paragraphs) if filtered_paragraphs else None
 
-
-    @log_error
     def clean_text(self, content):
-        """Clean text by removing unnecessary whitespace and non-content elements."""
+        """Cleans HTML content by removing unwanted tags."""
         for tag in content(['script', 'style', 'form', 'iframe']):
-            tag.decompose()  # Remove scripts, styles, forms, and iframes
+            tag.decompose()
         return content.get_text(separator="\n", strip=True)
-
 
     @log_error
     def extract_author(self, soup):
-        """
-        Attempts to extract the author's name using different strategies:
-        JSON-LD metadata, HTML selectors, or byline patterns, in that order.
-        """
-        extraction_methods = [
-            ('metadata', self.extract_author_metadata),
-            ('JSON-LD', self.extract_author_json_ld),
-            ('HTML selectors', self.extract_author_html),
-            ('regex patterns', self.extract_author_regex)
-        ]
+        """Extracts the author's name from metadata or HTML selectors."""
+        author_metadata = soup.find('meta', attrs={'name': 'author'})
+        if author_metadata:
+            return author_metadata.get('content', '').strip()
 
-        for method_name, method in extraction_methods:
-            author = method(soup)
-            if author:
-                logging.debug(f"Author extracted using {method_name}.")
-                return author
-
-        logging.info("Author not found using any predefined methods.")
-        return None
-
-    @log_error
-    def extract_author_metadata(self, soup):
-        article_tags = soup.find_all('meta', attrs={'property': re.compile(r'.*author.*', re.I)})
-        for tag in article_tags:
-            author = tag.get('content', '').strip()
-            if author:
-                return author
-
-    @log_error
-    def extract_author_html(self, soup):
-        author_selectors = [
-            'span.author', 'div.author-name', 'p.byline',
-            'a[rel="author"]', 'meta[name="author"]'
-        ]
+        author_selectors = ['span.author', 'div.author-name', 'p.byline', 'a[rel="author"]']
         for selector in author_selectors:
             element = soup.select_one(selector)
             if element:
-                if element.name == 'meta':
-                    return element.get('content', '').strip()
                 return element.get_text(strip=True)
+        return None
 
-    @log_error
-    def extract_author_regex(self, soup):
-        byline_patterns = [
-            re.compile(r'By\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)'),
-            re.compile(r'Written by\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)')
-        ]
-        text = soup.get_text(separator=' ', strip=True)
-        for pattern in byline_patterns:
-            match = pattern.search(text)
-            if match:
-                return match.group(1)
-
-    @log_error
-    def extract_author_json_ld(self, soup):
-        json_ld_script = soup.find("script", type="application/ld+json")
-        if json_ld_script:
-            try:
-                json_data = json.loads(json_ld_script.string)
-                if isinstance(json_data, list):
-                    json_data = json_data[0]  # In case it's an array
-                if "author" in json_data:
-                    author_data = json_data["author"]
-                    # Check if author_data is a list and extract from the first item if it is
-                    if isinstance(author_data, list) and len(author_data) > 0:
-                        author_data = author_data[0]
-                    if isinstance(author_data, dict) and "name" in author_data:
-                        return author_data["name"].strip()
-                    elif isinstance(author_data, str):
-                        return author_data.strip()
-            except json.JSONDecodeError:
-                logging.warning("Failed to decode JSON-LD data for author extraction.")
-
-    @log_execution
-    @log_error
-    def process_data(self, data):
-        """Process the extracted data into an Article object."""
-        url, title, content, author, publish_date = data
-        article = Article(url, title, content, [author], publish_date)
-        return article
-
-class TweepyScraper(Scraper):
-    def extract_data(self, url):
-        pass
-
-class TwarcScraper(Scraper):
-    def extract_data(self, url):
-        pass
-
-class ScraperFactory:
-    @staticmethod
-    @log_execution
-    @log_error
-    def create_scraper(scraper_type, **kwargs):
-        scraper = None
-        if scraper_type == 'beautifulsoup':
-            scraper = BeautifulSoupScraper()
-        elif scraper_type == 'tweepy':
-            scraper = TweepyScraper()
-        elif scraper_type == 'twarc':
-            scraper = TwarcScraper()
-        else:
-            raise ValueError('Invalid scraper type')
-        return scraper
 
 if __name__ == "__main__":
-    scraper = ScraperFactory.create_scraper('beautifulsoup')
-    url = "https://www.bbc.com/news/articles/ce8dz0n8xldo"
-    data = scraper.extract_data(url)
+    scraper = BeautifulSoupScraper()
+    test_url = "https://www.bbc.com/news/articles/ce8dz0n8xldo"
+    article_data = scraper.extract_data(test_url)
+
+    if article_data:
+        print(f"URL: {article_data['url']}")
+        print(f"Title: {article_data['title']}")
+        print(f"Content: {article_data['content']}")
+        print(f"Author: {article_data['author']}")
+        print(f"Publish Date: {article_data['publish_date']}")
+    else:
+        print("Failed to extract data from the URL.")
