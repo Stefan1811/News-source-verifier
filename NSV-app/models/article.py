@@ -1,9 +1,21 @@
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 import os
 import re
 import sys
 
+app = Flask(__name__)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
 from textblob import TextBlob
 import logging
+
+from scraper_engine import BeautifulSoupScraper
 
 logging.basicConfig(
     filename='logs.txt',
@@ -30,23 +42,41 @@ def log_method_call(func):
     return wrapper
 
 
-class Article:
-    """
-    Represents a news article to be analyzed for authenticity.
-    """
+class Article(db.Model):
+    __tablename__ = 'articles'
 
-    def __init__(self, url, title, content, author=None, publish_date=None):
-        self.url = url  # URL of the article
-        self.title = title  # Title of the article
-        self.content = content  # Main text content of the article
-        self.author = author  # Author of the article
-        self.publish_date = publish_date  # Publication date of the article
-        self.ml_model_prediction = 0.0  # Prediction from a machine learning model
-        self.source_credibility = 0  # Credibility of the source
-        self.sentiment_subjectivity = 0  # Sentiment subjectivity of the content
-        self.content_consistency = 0  # Consistency of the content
-        self.trust_score = None  # Score representing the article's credibility
-        self.status = "unverified"  # Status of the article: "unverified" or "verified"
+    article_id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String, nullable=False)
+    title = db.Column(db.String, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    author = db.Column(db.String, nullable=True)
+    publish_date = db.Column(db.DateTime, nullable=True)
+    ml_model_prediction = db.Column(db.Float, nullable=True)
+    source_credibility = db.Column(db.Float, nullable=True)
+    sentiment_subjectivity = db.Column(db.Float, nullable=True)
+    content_consistency = db.Column(db.Float, nullable=True)
+    trust_score = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'article_id': self.article_id,
+            'url': self.url,
+            'title': self.title,
+            'content': self.content,
+            'author': self.author,
+            'publish_date': self.publish_date.isoformat() if self.publish_date else None,
+            'ml_model_prediction': self.ml_model_prediction,
+            'source_credibility': self.source_credibility,
+            'sentiment_subjectivity': self.sentiment_subjectivity,
+            'content_consistency': self.content_consistency,
+            'trust_score': self.trust_score,
+            'status': self.status,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
 
     @log_method_call
     def analyze_sentiment(self):
@@ -100,12 +130,143 @@ class Article:
         """
         return f"Title: {self.title}, Author: {self.author}, Status: {self.status}"
 
+
+@app.route('/articles', methods=['GET'])
+def get_all_articles():
+    """Get all articles."""
+    articles = Article.query.all()
+    return jsonify([article.to_dict() for article in articles]), 200
+
+@app.route('/articles/<int:article_id>', methods=['GET'])
+def get_article(article_id):
+    """Get a single article by ID."""
+    article = Article.query.get(article_id)
+    if article is None:
+        return jsonify({"error": "Article not found"}), 404
+    return jsonify(article.to_dict()), 200
+
+@app.route('/articles', methods=['POST'])
+def create_article():
+    """Create a new article."""
+    data = request.json
+    try:
+        article = Article(
+            url=data.get('url'),
+            title=data.get('title'),
+            content=data.get('content'),
+            author=data.get('author'),
+            publish_date=datetime.fromisoformat(data.get('publish_date')) if data.get('publish_date') else None,
+            ml_model_prediction=data.get('ml_model_prediction', 0.0),
+            source_credibility=data.get('source_credibility'),
+            sentiment_subjectivity=data.get('sentiment_subjectivity'),
+            content_consistency=data.get('content_consistency'),
+            trust_score=data.get('trust_score'),
+            status=data.get('status')
+        )
+        db.session.add(article)
+        db.session.commit()
+        return jsonify(article.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
+scraper = BeautifulSoupScraper()
+
+@app.route('/articles/scrape', methods=['POST'])
+def scrape_and_create_article():
+    """
+    For an URL -> use scraper_engine to extract data.
+    """
+    data = request.json
+    url = data.get('url')
+
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+
+    try:
+        article_data = scraper.extract_data(url)
+
+        if not article_data:
+            return jsonify({"error": "Failed to extract data from the provided URL"}), 500
+
+        article = Article(
+            url=article_data.get('url'),
+            title=article_data.get('title'),
+            content=article_data.get('content'),
+            author=article_data.get('author'),
+            publish_date=datetime.fromisoformat(article_data['publish_date']) if article_data.get(
+                'publish_date') else None,
+
+            ml_model_prediction=0.0,
+            source_credibility=0.0,
+            sentiment_subjectivity=0.0,
+            content_consistency=0.0,
+            trust_score=None,
+            status="unverified"
+        )
+
+        # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
+        #le pot scoate]
+        article.analyze_sentiment()
+        article.check_consistency()
+
+        db.session.add(article)
+        db.session.commit()
+
+        return jsonify(article.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/articles/<int:article_id>', methods=['PUT'])
+def update_article(article_id):
+    """Update an existing article."""
+    data = request.json
+    article = Article.query.get(article_id)
+    if not article:
+        return jsonify({"error": "Article not found"}), 404
+    try:
+        article.url = data.get('url', article.url)
+        article.title = data.get('title', article.title)
+        article.content = data.get('content', article.content)
+        article.author = data.get('author', article.author)
+        article.publish_date = data.get('publish_date', article.publish_date)
+        article.ml_model_prediction = data.get('ml_model_prediction', article.ml_model_prediction)
+        article.source_credibility = data.get('source_credibility', article.source_credibility)
+        article.sentiment_subjectivity = data.get('sentiment_subjectivity', article.sentiment_subjectivity)
+        article.content_consistency = data.get('content_consistency', article.content_consistency)
+        article.trust_score = data.get('trust_score', article.trust_score)
+        article.status = data.get('status', article.status)
+        db.session.commit()
+        return jsonify(article.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/articles/<int:article_id>', methods=['DELETE'])
+def delete_article(article_id):
+    """Delete an article."""
+    article = Article.query.get(article_id)
+    if not article:
+        return jsonify({"error": "Article not found"}), 404
+    try:
+        db.session.delete(article)
+        db.session.commit()
+        return jsonify({"message": "Article deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
 if __name__ == "__main__":
-    article = Article("https://example.com", "Sample Title", "This content could contain misinformation.", "Author Name", "2024-11-11")
-    print(article.analyze_sentiment())
-    print(article.extract_keywords())
-    print(article.check_consistency())
+    # article = Article("https://example.com", "Sample Title", "This content could contain misinformation.", "Author Name", "2024-11-11")
+    # print(article.analyze_sentiment())
+    # print(article.extract_keywords())
+    # print(article.check_consistency())
     # Presupunem că avem o strategie implementată cu o metodă `calculate_trust_score`
     # În exemplul de mai jos, trebuie definită strategia înainte de a o folosi
     # print(article.calculate_trust_score(strategy))
-    print(article)
+    # print(article)
+    app.run(debug=True)
