@@ -48,16 +48,4 @@ def get_tweet_info_from_notes(tweet_id, file_name="notes.tsv"):
                 }
     return None
 
-if __name__ == "__main__":
-    tweet_url = "https://x.com/i/web/status/1783159712986382830"
-    tweet_id = extract_tweet_id(tweet_url)
-    if not tweet_id:
-        print("Invalid tweet URL.")
-        exit()
 
-    tweet_info = get_tweet_info_from_notes(tweet_id)
-
-    if tweet_info:
-        print(json.dumps(tweet_info, indent=4))
-    else:
-        print("Tweet ID not found in the notes file.")

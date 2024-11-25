@@ -74,14 +74,3 @@ class TweepyScraper:
         return match.group(1) if match else None
 
 
-if __name__ == '__main__':
-    BEARER_TOKEN = "bearer_token"
-
-    scraper = TweepyScraper(BEARER_TOKEN)
-
-    # Test URL
-    tweet_url = "https://x.com/i/web/status/1783159712986382830"
-
-    # Extract tweet data
-    data_json = scraper.extract_data(tweet_url)
-    print(data_json)
