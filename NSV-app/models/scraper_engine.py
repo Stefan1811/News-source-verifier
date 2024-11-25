@@ -140,20 +140,27 @@ class BeautifulSoupScraper:
     @log_error
     def extract_content(self, soup):
         """Extracts the main content of the article."""
-        for tag in soup(['header', 'footer', 'nav', 'aside', 'form', 'iframe']):
-            tag.decompose()  # Remove non-content elements
+        # Elimină elementele non-content
+        for tag in soup(['header', 'footer', 'nav', 'aside', 'form', 'iframe', 'img', 'div.social', 'figure']):
+            tag.decompose()
 
-        content_selectors = ['div.article-content', 'div.content-body', 'div.post-content']
+        # Încercăm să găsim conținutul principal folosind selectori CSS
+        content_selectors = ['article', 'div.article-content', 'div.content-body', 'div.post-content', 'div.data-app-meta-article']
         for selector in content_selectors:
             element = soup.select_one(selector)
             if element:
-                return self.clean_text(element)
+                # Extragem doar paragrafele din acest element
+                paragraphs = element.find_all('p')
+                filtered_paragraphs = [
+                    p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50
+                ]
 
-        paragraphs = soup.find_all('p')
-        filtered_paragraphs = [
-            p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50
-        ]
-        return "\n".join(filtered_paragraphs) if filtered_paragraphs else None
+                # Dacă avem paragrafe semnificative, le returnăm
+                if filtered_paragraphs:
+                    return "\n".join(filtered_paragraphs)
+
+            # Dacă nu am găsit conținutul dorit, returnăm None
+        return None
 
     def clean_text(self, content):
         """Cleans HTML content by removing unwanted tags."""
@@ -163,23 +170,126 @@ class BeautifulSoupScraper:
 
     @log_error
     def extract_author(self, soup):
-        """Extracts the author's name from metadata or HTML selectors."""
-        author_metadata = soup.find('meta', attrs={'name': 'author'})
-        if author_metadata:
-            return author_metadata.get('content', '').strip()
+        """
+        Attempts to extract the author's name using different strategies:
+        JSON-LD metadata, HTML selectors, or byline patterns, in that order.
+        """
+        extraction_methods = [
+            ('JSON-LD', self.extract_author_json_ld),
+            ('metadata', self.extract_author_metadata),
+            ('HTML selectors', self.extract_author_html),
+            ('regex patterns', self.extract_author_regex)
+        ]
+        author = None
+        for method_name, method in extraction_methods:
+            if author is None:
+                author = method(soup)
+            if author:
+                logging.debug(f"Author extracted using {method_name}.")
+                return author
 
-        author_selectors = ['span.author', 'div.author-name', 'p.byline', 'a[rel="author"]']
+        logging.info("Author not found using any predefined methods.")
+        return None
+
+    @log_error
+    def extract_author_metadata(self, soup):
+        article_tags = soup.find_all('meta', attrs={'property': re.compile(r'.*author.*', re.I)})
+        for tag in article_tags:
+            author = tag.get('content', '').strip()
+            if author:
+                return author
+
+    @log_error
+    def extract_author_html(self, soup):
+        author_selectors = [
+            'span.author', 'div.author-name', 'p.byline',
+            'a[rel="author"]', 'meta[name="author"]'
+        ]
         for selector in author_selectors:
             element = soup.select_one(selector)
             if element:
+                if element.name == 'meta':
+                    return element.get('content', '').strip()
                 return element.get_text(strip=True)
-        return None
 
+    @log_error
+    def extract_author_regex(self, soup):
+        byline_patterns = [
+            re.compile(r'By\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)'),
+            re.compile(r'Written by\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)')
+        ]
+        text = soup.get_text(separator=' ', strip=True)
+        for pattern in byline_patterns:
+            match = pattern.search(text)
+            if match:
+                return match.group(1)
+
+    @log_error
+    def extract_author_json_ld(self, soup):
+        """Extrage autorul din JSON-LD."""
+        # Căutăm toate etichetele script cu JSON-LD
+        json_ld_scripts = soup.find_all("script", type="application/ld+json")
+
+        if not json_ld_scripts:
+            logging.warning("Nu au fost găsite etichete JSON-LD.")
+            return []  # Returnează o listă goală dacă nu găsește scripturi JSON-LD
+
+        for script in json_ld_scripts:
+            try:
+                json_data = json.loads(script.string)
+                if isinstance(json_data, list):
+                    json_data = next((item for item in json_data if "@type" in item), {})
+
+                # Verificăm structura principală pentru autor
+                if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
+                    author_data = json_data.get("author", None)
+                    authors = self.process_author(author_data)  # Apelăm funcția pentru procesare autor
+                    if authors:
+                        return authors
+
+                if '@graph' in json_data:
+                    graph_items = json_data['@graph']
+                    logging.info(f"Am găsit {len(graph_items)} obiecte în @graph.")
+                    for item in graph_items:
+                        if item.get('@type') == 'Article':  # Verificăm dacă este un articol
+                            author_data = item.get('author', None)
+                            if author_data:
+                                authors = self.process_author(author_data)  # Apelăm funcția pentru procesare autor
+                                if authors:
+                                    return authors  # Returnează autorii găsiți în @graph
+
+            except json.JSONDecodeError:
+                logging.error("Nu am reușit să parsez conținutul JSON-LD.", exc_info=True)
+
+        logging.warning("Nu am găsit autor în JSON-LD.")
+        return []
+
+    @staticmethod
+    def process_author(author_data):
+        """Procesează datele autorului și le returnează sub formă de listă."""
+        authors = []
+
+        if isinstance(author_data, list):
+            for author in author_data:
+                if isinstance(author, dict) and "name" in author:
+                    authors.append(author["name"].strip())
+                elif isinstance(author, str):
+                    authors.append(author.strip())
+        elif isinstance(author_data, dict) and "name" in author_data:
+            authors.append(author_data["name"].strip())
+        elif isinstance(author_data, str):
+            authors.append(author_data.strip())
+
+        return authors
 
 if __name__ == "__main__":
     scraper = BeautifulSoupScraper()
-    test_url = "https://www.bbc.com/news/articles/ce8dz0n8xldo"
-    article_data = scraper.extract_data(test_url)
+    test_url = "https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621"
+    test_url2 ="https://www.bbc.com/news/articles/cgk18pdnxmmo"
+    test_url3="https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709"
+    test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
+    test_url5="https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623"
+    article_data = scraper.extract_data(test_url5)
 
     if article_data:
         print(f"URL: {article_data['url']}")
