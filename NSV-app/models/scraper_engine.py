@@ -173,6 +173,7 @@ class BeautifulSoupScraper:
         """
         Attempts to extract the author's name using different strategies:
         JSON-LD metadata, HTML selectors, or byline patterns, in that order.
+        Returns authors as a comma-separated string if multiple authors are found.
         """
         extraction_methods = [
             ('JSON-LD', self.extract_author_json_ld),
@@ -180,13 +181,19 @@ class BeautifulSoupScraper:
             ('HTML selectors', self.extract_author_html),
             ('regex patterns', self.extract_author_regex)
         ]
+
         author = None
         for method_name, method in extraction_methods:
             if author is None:
                 author = method(soup)
             if author:
-                logging.debug(f"Author extracted using {method_name}.")
-                return author
+                if isinstance(author, list):
+                    author_str = ', '.join(author)
+                    logging.debug(f"Authors extracted using {method_name}: {author_str}")
+                    return author_str
+                elif isinstance(author, str):
+                    logging.debug(f"Author extracted using {method_name}: {author}")
+                    return author
 
         logging.info("Author not found using any predefined methods.")
         return None
@@ -227,12 +234,10 @@ class BeautifulSoupScraper:
     @log_error
     def extract_author_json_ld(self, soup):
         """Extrage autorul din JSON-LD."""
-        # Căutăm toate etichetele script cu JSON-LD
         json_ld_scripts = soup.find_all("script", type="application/ld+json")
 
         if not json_ld_scripts:
-            logging.warning("Nu au fost găsite etichete JSON-LD.")
-            return []  # Returnează o listă goală dacă nu găsește scripturi JSON-LD
+            return []
 
         for script in json_ld_scripts:
             try:
@@ -240,28 +245,27 @@ class BeautifulSoupScraper:
                 if isinstance(json_data, list):
                     json_data = next((item for item in json_data if "@type" in item), {})
 
-                # Verificăm structura principală pentru autor
+
                 if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                     author_data = json_data.get("author", None)
-                    authors = self.process_author(author_data)  # Apelăm funcția pentru procesare autor
+                    authors = self.process_author(author_data)
                     if authors:
                         return authors
 
                 if '@graph' in json_data:
                     graph_items = json_data['@graph']
-                    logging.info(f"Am găsit {len(graph_items)} obiecte în @graph.")
                     for item in graph_items:
-                        if item.get('@type') == 'Article':  # Verificăm dacă este un articol
+                        if item.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                             author_data = item.get('author', None)
                             if author_data:
-                                authors = self.process_author(author_data)  # Apelăm funcția pentru procesare autor
+                                authors = self.process_author(author_data)
                                 if authors:
-                                    return authors  # Returnează autorii găsiți în @graph
+                                    return authors
 
             except json.JSONDecodeError:
-                logging.error("Nu am reușit să parsez conținutul JSON-LD.", exc_info=True)
+                logging.error("Cannot parse JSON-LD", exc_info=True)
 
-        logging.warning("Nu am găsit autor în JSON-LD.")
+        logging.warning("No author in JSON-LD found.")
         return []
 
     @staticmethod
@@ -289,7 +293,7 @@ if __name__ == "__main__":
     test_url3="https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709"
     test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
     test_url5="https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623"
-    article_data = scraper.extract_data(test_url5)
+    article_data = scraper.extract_data(test_url2)
 
     if article_data:
         print(f"URL: {article_data['url']}")
