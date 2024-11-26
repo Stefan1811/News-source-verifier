@@ -1,0 +1,8 @@
+2024-11-11 20:19:43,728 - INFO - Executând MLModel.load_model cu argumente: dummy_path
+2024-11-11 20:19:43,728 - INFO - load_model a durat 0.0000 secunde
+2024-11-11 20:19:43,728 - INFO - Executând MLModel.get_prediction cu argumente: Acesta este un text de test pentru modelul ML.
+2024-11-11 20:19:43,728 - INFO - Executând MLModel.preprocess cu argumente: Acesta este un text de test pentru modelul ML.
+2024-11-11 20:19:43,728 - INFO - preprocess a durat 0.0000 secunde
+2024-11-11 20:19:43,728 - INFO - Executând MLModel.predict cu argumente: ACESTA ESTE UN TEXT DE TEST PENTRU MODELUL ML.
+2024-11-11 20:19:43,728 - INFO - predict a durat 0.0000 secunde
+2024-11-11 20:19:43,728 - INFO - get_prediction a durat 0.0000 secunde
