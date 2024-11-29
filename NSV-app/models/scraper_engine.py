@@ -4,38 +4,14 @@ import logging
 import time
 import re
 import json
-
-# Configure logging format with timestamp
-logging.basicConfig(
-    filename='logs.txt',
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-def log_error(func):
-    """Error-handling decorator."""
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            logging.error(f"{func.__name__} failed with error: {e}")
-            raise e
-    return wrapper
-
-def log_execution(func):
-    """Decorator for logging method execution."""
-    def wrapper(*args, **kwargs):
-        logging.info(f"Calling {func.__name__} with args: {args} and kwargs: {kwargs}")
-        result = func(*args, **kwargs)
-        return result
-    return wrapper
+from aop_wrapper import Aspect
 
 class BeautifulSoupScraper:
     """A scraper class using BeautifulSoup to extract data from web pages."""
 
-    @log_error
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_data(self, url):
         """Extracts data from a webpage."""
         headers = {
@@ -76,7 +52,9 @@ class BeautifulSoupScraper:
             "publish_date": publish_date
         }
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_text(self, soup, selectors):
         """Extract text using a list of CSS selectors."""
         for selector in selectors:
@@ -84,8 +62,9 @@ class BeautifulSoupScraper:
             if element:
                 return element.get_text(strip=True)
         return None
-
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_publish_date(self, soup):
         """Extracts the publish date of the article from the HTML content."""
         return (
@@ -95,6 +74,9 @@ class BeautifulSoupScraper:
             self.extract_published_date_regex(soup)
         )
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_published_date_metadata(self, soup):
         """Extract the published date from metadata tags."""
         date_tag = soup.find('meta', attrs={'property': 'article:published_time'})
@@ -102,6 +84,9 @@ class BeautifulSoupScraper:
             return date_tag.get('content', '').strip()
         return None
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_published_date_html(self, soup):
         """Extract the published date from HTML selectors."""
         date_selectors = [
@@ -114,6 +99,9 @@ class BeautifulSoupScraper:
                 return element.get_text(strip=True) if element.name != 'meta' else element.get('content', '').strip()
         return None
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_published_date_json_ld(self, soup):
         """Extract the dateModified from JSON-LD metadata."""
         json_ld_script = soup.find("script", type="application/ld+json")
@@ -127,6 +115,9 @@ class BeautifulSoupScraper:
                 logging.warning("Failed to decode JSON-LD data for published date extraction.")
         return None
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_published_date_regex(self, soup):
         """Extract the published date using regex patterns."""
         date_patterns = [re.compile(r'Published on\s+(\w+\s\d{1,2},\s\d{4})')]
@@ -137,7 +128,9 @@ class BeautifulSoupScraper:
                 return match.group(1)
         return None
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_content(self, soup):
         """Extracts the main content of the article."""
         for tag in soup(['header', 'footer', 'nav', 'aside', 'form', 'iframe']):
@@ -155,13 +148,18 @@ class BeautifulSoupScraper:
         ]
         return "\n".join(filtered_paragraphs) if filtered_paragraphs else None
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def clean_text(self, content):
         """Cleans HTML content by removing unwanted tags."""
         for tag in content(['script', 'style', 'form', 'iframe']):
             tag.decompose()
         return content.get_text(separator="\n", strip=True)
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_author(self, soup):
         """Extracts the author's name from metadata or HTML selectors."""
         author_metadata = soup.find('meta', attrs={'name': 'author'})

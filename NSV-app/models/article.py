@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 import re
 import sys
-
+from aop_wrapper import Aspect
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
@@ -16,31 +16,6 @@ from textblob import TextBlob
 import logging
 
 from scraper_engine import BeautifulSoupScraper
-
-logging.basicConfig(
-    filename='logs.txt',
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-def log_method_call(func):
-    """returnată
-    Decorator pentru apelurile functiilor, numele functiei, argumentele si valoarea returnata.
-    """
-    def wrapper(*args, **kwargs):
-        class_name = args[0].__class__.__name__
-        method_name = func.__name__
-
-        logging.info(f"Calling {class_name}.{method_name} with args={args[1:]}, kwargs={kwargs}")
-
-        result = func(*args, **kwargs)
-
-        logging.info(f"{class_name}.{method_name} returned: {result}")
-
-        return result
-    return wrapper
-
 
 class Article(db.Model):
     __tablename__ = 'articles'
@@ -59,7 +34,10 @@ class Article(db.Model):
     status = db.Column(db.String, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
+    
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def to_dict(self):
         return {
             'article_id': self.article_id,
@@ -78,7 +56,9 @@ class Article(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
-    @log_method_call
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def analyze_sentiment(self):
         """
         Analyzes the sentiment of the article's content.
@@ -89,7 +69,9 @@ class Article(db.Model):
         self.sentiment_subjectivity = blob.sentiment.subjectivity
         return self.sentiment_subjectivity
 
-
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_keywords(self):
         """
         Extracts relevant keywords from the article's content.
@@ -99,7 +81,9 @@ class Article(db.Model):
         keywords = re.findall(r'\w+', self.content)
         return list(set(keywords))[:3]
 
-    @log_method_call
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def check_consistency(self):
         """
         Checks the consistency of the content to assess credibility.
@@ -114,15 +98,19 @@ class Article(db.Model):
             self.content_consistency = 0.9
         return self.content_consistency
 
-    @log_method_call
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate_trust_score(self, strategy):
         """
         Calculates the final trust score based on the selected strategy.
         """
         self.trust_score = strategy.calculate_trust_score(self)
         return self.trust_score
-
-    @log_method_call
+    
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def __str__(self):
         """
         Returns a string summary of the article with title, author, and status.
