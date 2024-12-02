@@ -16,6 +16,22 @@ nltk.download('stopwords')
 def get_class_name(instance):
     return instance.__class__.__name__
 
+class Monitor:
+    @staticmethod
+    def validate_keyword_extraction(keywords):
+        if not keywords:
+            logging.error("No keywords extracted.")
+            raise ValueError("Keyword extraction failed, no keywords found.")
+        else:
+            logging.info(f"Keyword extraction validated. {len(keywords)} keywords found.")
+
+    @staticmethod
+    def validate_sentiment_analysis(keywords):
+        for word, data in keywords.items():
+            if data["sentiment"] not in ["Positive", "Negative", "Neutral"]:
+                logging.error(f"Invalid sentiment for keyword: {word}")
+                raise ValueError(f"Invalid sentiment for keyword: {word}")
+        logging.info("Sentiment analysis validated for all keywords.")
 
 class KeywordExtractor:
     def __init__(self, sentiment_analyzers):
@@ -26,7 +42,7 @@ class KeywordExtractor:
     @Aspect.measure_time
     @Aspect.handle_exceptions
     def extract_keywords(self, text):
-        sentences = text.split('.') 
+        sentences = text.split('.')
         word_freq = Counter(re.findall(r'\b\w+\b', text.lower()))
         
         keyword_sentiments = defaultdict(lambda: {"frequency": 0, "vader_score": 0, "sentiment_counts": Counter()})
@@ -50,8 +66,11 @@ class KeywordExtractor:
             data["sentiment"] = data["sentiment_counts"].most_common(1)[0][0]
 
         sorted_keywords = dict(sorted(keyword_sentiments.items(), key=lambda item: item[1]["frequency"], reverse=True))
-        return sorted_keywords
 
+        Monitor.validate_keyword_extraction(sorted_keywords)
+        Monitor.validate_sentiment_analysis(sorted_keywords)
+
+        return sorted_keywords
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -74,6 +93,7 @@ class ArticleSummary:
         article_snippet = self.analysis_results["article_text"]
         summary = f"Article Summary:\n\nSentiment: {sentiment}\n\nArticle Excerpt: {article_snippet}...\n\nFor full article text, please visit the source link."
         return summary
+    
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
@@ -174,5 +194,4 @@ def main():
     except Exception as e:
         print(f"An error occurred: {e}")
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
