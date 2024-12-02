@@ -10,10 +10,13 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import nltk
 from datetime import datetime
 
+# Download NLTK stopwords if not already installed
 nltk.download('stopwords')
 
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Helper functions
 def get_class_name(instance):
     return instance.__class__.__name__
 
@@ -33,6 +36,79 @@ def log_execution(func):
             raise
     return wrapper
 
+# Monitors
+class Monitor(ABC):
+    def __init__(self, name):
+        self.name = name
+
+    @abstractmethod
+    def observe(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def verify(self, *args, **kwargs):
+        pass
+
+    def log_event(self, event):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logging.info(f"[{timestamp}] {self.name} - {event}")
+
+    def trigger_action(self, action):
+        self.log_event(f"Action triggered: {action}")
+
+# Article Parser Monitor
+class ArticleParserMonitor(Monitor):
+    def __init__(self):
+        super().__init__("ArticleParserMonitor")
+
+    def observe(self, article_text):
+        if not article_text:
+            self.trigger_action("No article text found")
+        else:
+            self.log_event(f"Article text parsed successfully: {article_text[:50]}...")
+
+    def verify(self, article_text):
+        if len(article_text) < 100:
+            self.trigger_action("Article text is too short")
+        else:
+            self.log_event("Article text verification passed")
+
+# Keyword Extractor Monitor
+class KeywordExtractorMonitor(Monitor):
+    def __init__(self):
+        super().__init__("KeywordExtractorMonitor")
+
+    def observe(self, keywords):
+        if not keywords:
+            self.trigger_action("No keywords extracted")
+        else:
+            self.log_event(f"Keywords extracted: {len(keywords)} keywords found.")
+
+    def verify(self, keywords, min_frequency=2):
+        invalid_keywords = [word for word, data in keywords.items() if data["frequency"] < min_frequency]
+        if invalid_keywords:
+            self.trigger_action(f"Low frequency keywords detected: {invalid_keywords}")
+        else:
+            self.log_event("Keyword frequency verification passed")
+
+# Sentiment Analyzer Monitor
+class SentimentAnalyzerMonitor(Monitor):
+    def __init__(self):
+        super().__init__("SentimentAnalyzerMonitor")
+
+    def observe(self, sentiment_result):
+        if sentiment_result not in ["Positive", "Negative", "Neutral"]:
+            self.trigger_action(f"Unexpected sentiment: {sentiment_result}")
+        else:
+            self.log_event(f"Sentiment detected: {sentiment_result}")
+
+    def verify(self, sentiment_result):
+        if sentiment_result == "Neutral":
+            self.trigger_action("Neutral sentiment detected")
+        else:
+            self.log_event(f"Sentiment verified: {sentiment_result}")
+
+# Keyword Extractor Class
 class KeywordExtractor:
     def __init__(self, sentiment_analyzers):
         self.sentiment_analyzers = sentiment_analyzers
@@ -66,7 +142,6 @@ class KeywordExtractor:
         sorted_keywords = dict(sorted(keyword_sentiments.items(), key=lambda item: item[1]["frequency"], reverse=True))
         return sorted_keywords
 
-
     @log_execution
     def save_keywords_to_file(self, keywords, filename="keywords_summary.txt"):
         with open(filename, "w", encoding="utf-8") as file:
@@ -74,6 +149,7 @@ class KeywordExtractor:
                 file.write(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}\n")
         logging.info(f"Keywords saved to {filename}")
 
+# Article Summary Class
 class ArticleSummary:
     def __init__(self, analysis_results):
         self.analysis_results = analysis_results
@@ -92,6 +168,7 @@ class ArticleSummary:
             file.write(summary)
         logging.info(f"Article summary saved to {filename}")
 
+# Article Parser Class
 class ArticleParser:
     @log_execution
     def extract_article_text(self, url):
@@ -126,11 +203,13 @@ class ArticleParser:
             file.write(article_text)
         logging.info(f"Article saved to {filename}")
 
+# Sentiment Analyzer Interface
 class SentimentAnalyzer(ABC):
     @abstractmethod
     def analyze_text(self, text):
         pass
 
+# TextBlob Sentiment Analyzer
 class TextBlobSentimentAnalyzer(SentimentAnalyzer):
     @log_execution
     def analyze_text(self, text):
@@ -139,6 +218,7 @@ class TextBlobSentimentAnalyzer(SentimentAnalyzer):
         sentiment = "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
         return {"sentiment": sentiment}
 
+# VADER Sentiment Analyzer
 class VaderSentimentAnalyzer(SentimentAnalyzer):
     def __init__(self):
         self.analyzer = SentimentIntensityAnalyzer()
@@ -149,7 +229,7 @@ class VaderSentimentAnalyzer(SentimentAnalyzer):
         sentiment = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"
         return {"sentiment": sentiment, "vader_score": score}
 
-
+# Main Function
 def main():
     url = "https://edition.cnn.com/2024/11/12/politics/trump-team-loyalists-analysis/index.html"
 
@@ -157,21 +237,43 @@ def main():
     keyword_extractor = KeywordExtractor(sentiment_analyzers)
     parser = ArticleParser()
 
+    # Create monitor instances
+    article_monitor = ArticleParserMonitor()
+    keyword_monitor = KeywordExtractorMonitor()
+    sentiment_monitor = SentimentAnalyzerMonitor()
+
     try:
+        # Parse the article
         article_text = parser.extract_article_text(url)
         parser.save_article_text_to_file(article_text, "article_text.txt")
         print("Article text saved to 'article_text.txt'.")
+        article_monitor.observe(article_text)
+        article_monitor.verify(article_text)
 
+        # Extract keywords
         keywords = keyword_extractor.extract_keywords(article_text)
         keyword_extractor.save_keywords_to_file(keywords, "keywords_summary.txt")
-        print("Keywords and their sentiments saved to 'keywords_summary.txt'.")
+        keyword_monitor.observe(keywords)
+        keyword_monitor.verify(keywords)
 
-        print("\nExtracted Keywords and Sentiments:")
-        for word, data in keywords.items():
-            print(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}")
+        # Sentiment analysis
+        sentiments = []
+        for analyzer in sentiment_analyzers:
+            sentiment_result = analyzer.analyze_text(article_text)
+            sentiment_monitor.observe(sentiment_result['sentiment'])
+            sentiment_monitor.verify(sentiment_result['sentiment'])
+            sentiments.append(sentiment_result)
+        
+        # Generate summary and save
+        summary = ArticleSummary({
+            "article_text": article_text,
+            "sentiment": sentiments[0]['sentiment'],
+        })
+        summary.save_summary_to_file("article_summary.txt")
+        logging.info("Article analysis completed successfully.")
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred during the process: {e}")
 
 if __name__ == "__main__":
     main()
