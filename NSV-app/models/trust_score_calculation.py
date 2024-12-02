@@ -1,30 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from functools import wraps
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-def log_execution(func):
-    """Decorator for logging method execution and return values."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        class_name = args[0].__class__.__name__
-        function_name = func.__name__
-
-        try:
-            result = func(*args, **kwargs)
-            logging.info(f"{class_name} _ {function_name} _ returned: {result}")
-            return result
-
-        except Exception as e:
-            logging.error(f"{class_name} _ {function_name} _ raised an error: {e}")
-            raise
-
-    return wrapper
+from aop_wrapper import Aspect
 
 class TrustScore:
     """Class to calculate the trustworthiness of a news article based on various metrics."""
@@ -37,13 +14,17 @@ class TrustScore:
         self.content_consistency = 0
         self.final_trust_score = None
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate_score(self):
         """Calculates the final trust score based on the selected strategy."""
         self.final_trust_score = self.strategy.calculate(self)
         return self.final_trust_score
-
-    @log_execution
+    
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def display_score(self):
         """Displays the calculated trust score."""
         return (
@@ -62,7 +43,9 @@ class ScoringStrategy(ABC):
 class SimpleAverageStrategy(ScoringStrategy):
     """Strategy for calculating score as a simple average."""
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate(self, trust_score):
         # Calculate the simple average of the metrics
         return (
@@ -75,7 +58,9 @@ class SimpleAverageStrategy(ScoringStrategy):
 class WeightedAverageStrategy(ScoringStrategy):
     """Strategy for calculating score as a weighted average."""
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate(self, trust_score):
         # Calculate the weighted average based on predefined weights
         return (

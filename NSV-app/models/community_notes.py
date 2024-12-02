@@ -2,8 +2,11 @@ import re
 import json
 import csv
 import os
+from aop_wrapper import Aspect
 
-
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
 def extract_tweet_id(tweet_url):
     """
     Extract the tweet ID from a Twitter URL.
@@ -11,7 +14,9 @@ def extract_tweet_id(tweet_url):
     match = re.search(r"/status/(\d+)", tweet_url)
     return match.group(1) if match else None
 
-
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
 def get_tweet_info_from_notes(tweet_id, file_name="notes.tsv"):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(script_dir, "..", file_name)
@@ -48,16 +53,4 @@ def get_tweet_info_from_notes(tweet_id, file_name="notes.tsv"):
                 }
     return None
 
-if __name__ == "__main__":
-    tweet_url = "https://x.com/i/web/status/1783159712986382830"
-    tweet_id = extract_tweet_id(tweet_url)
-    if not tweet_id:
-        print("Invalid tweet URL.")
-        exit()
 
-    tweet_info = get_tweet_info_from_notes(tweet_id)
-
-    if tweet_info:
-        print(json.dumps(tweet_info, indent=4))
-    else:
-        print("Tweet ID not found in the notes file.")
