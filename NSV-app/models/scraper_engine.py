@@ -196,7 +196,9 @@ class BeautifulSoupScraper:
         logging.info("Author not found using any predefined methods.")
         return None
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_author_metadata(self, soup):
         article_tags = soup.find_all('meta', attrs={'property': re.compile(r'.*author.*', re.I)})
         for tag in article_tags:
@@ -204,7 +206,9 @@ class BeautifulSoupScraper:
             if author:
                 return author
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_author_html(self, soup):
         author_selectors = [
             'span.author', 'div.author-name', 'p.byline',
@@ -217,7 +221,9 @@ class BeautifulSoupScraper:
                     return element.get('content', '').strip()
                 return element.get_text(strip=True)
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_author_regex(self, soup):
         byline_patterns = [
             re.compile(r'By\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)'),
@@ -229,7 +235,9 @@ class BeautifulSoupScraper:
             if match:
                 return match.group(1)
 
-    @log_error
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_author_json_ld(self, soup):
         """Extrage autorul din JSON-LD."""
         json_ld_scripts = soup.find_all("script", type="application/ld+json")
