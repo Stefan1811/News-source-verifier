@@ -4,6 +4,8 @@ from datetime import datetime
 import json
 from tweepy_api import TweepyScraper
 from community_notes import get_tweet_info_from_notes
+import logging
+import mop
 
 app = Flask(__name__)
 
@@ -12,8 +14,48 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Tweet model
+@mop.monitor(
+    lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'],
+    lambda req: "Invalid HTTP method"
+)
+def validate_http_method(req):
+    """Validates the HTTP method of the request."""
+    if req.method not in ['GET', 'POST', 'PUT', 'DELETE']:
+        print(f"Invalid HTTP method for request with path: {req.path}")
+        logging.error(f"Invalid HTTP method: {req.method} for request to {req.path}")
+    else:
+        print(f"HTTP method validation passed: {req.method}")
+        logging.info(f"Validated HTTP method {req.method} for request to {req.path}")
+    return req
+
+
+@mop.monitor(
+    lambda req: req.view_args and 'tweet_id' in req.view_args and req.view_args['tweet_id'].isdigit(),
+    lambda req: "Invalid Tweet ID: must be numeric"
+)
+def validate_tweet_id_request(req):
+    """Validates the Tweet ID from the request URL."""
+    tweet_id = req.view_args.get('tweet_id') if req.view_args else None
+    if tweet_id and not tweet_id.isdigit():
+        print(f"Tweet ID validation failed: {tweet_id}")
+        logging.error(f"Invalid Tweet ID: {tweet_id} for request to {req.path}")
+    elif tweet_id:
+        print(f"Tweet ID validation passed: {tweet_id}")
+        logging.info(f"Validated Tweet ID {tweet_id} for request to {req.path}")
+    return req
+
+
+@app.before_request
+def monitor_request():
+    validate_http_method(request)  # Validează metoda HTTP
+    if 'tweet_id' in (request.view_args or {}):  # Verifică doar dacă există un tweet_id în URL
+        validate_tweet_id_request(request)  # Validează Tweet ID-ul
+
+
 class Tweet(db.Model):
     __tablename__ = 'twitter_data'
 
@@ -75,17 +117,20 @@ class Tweet(db.Model):
 BEARER_TOKEN = "bearer_token"
 tweepy_scraper = TweepyScraper(BEARER_TOKEN)
 
-
 @app.route('/tweets', methods=['GET'])
 def get_all_tweets():
     """Get all tweets."""
     tweets = Tweet.query.all()
     return jsonify([tweet.to_dict() for tweet in tweets]), 200
 
-
 @app.route('/tweets/<tweet_id>', methods=['GET'])
 def get_tweet(tweet_id):
     """Get a single tweet by ID."""
+    try:
+        validate_tweet_id(tweet_id)  # Validează tweet_id
+    except ValueError as e:
+        logging.error(f"Invalid Tweet ID: {tweet_id}. Error: {e}")
+        return jsonify({"error": str(e)}), 400
     tweet = Tweet.query.get(tweet_id)
     if not tweet:
         return jsonify({"error": "Tweet not found"}), 404
@@ -152,7 +197,9 @@ def create_tweet():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
+@mop.monitor(lambda tweet_id: isinstance(tweet_id, int) and tweet_id > 0, lambda _: 1)
+def validate_tweet_id(tweet_id):
+    return tweet_id
 @app.route('/tweets/<tweet_id>', methods=['DELETE'])
 def delete_tweet(tweet_id):
     """Delete a tweet."""
