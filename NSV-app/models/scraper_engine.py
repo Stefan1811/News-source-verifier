@@ -1,3 +1,6 @@
+import urllib
+from copy import deepcopy
+from functools import wraps
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -6,12 +9,121 @@ import re
 import json
 from aop_wrapper import Aspect
 
+
+class ScrapperMonitor:
+    def __init__(self, validate=None, clean=None):
+        """
+        ScrapperMonitor will take validate and clean functions as arguments.
+        """
+        self.validate = validate
+        self.clean = clean
+
+    def __call__(self, func):
+        """
+        This allows ScrapperMonitor to be used as a decorator with the given validate and clean functions.
+        """
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # First, attempt to apply the validation
+            try:
+                if self.validate:
+                    self.validate(*args, **kwargs)  # Apply the validation
+            except Exception as e:
+                print(f"Validation failed: {e}")
+
+                if self.clean:
+                    print("Applying cleaning function...")
+                    self.clean(*args, **kwargs)  # Apply the cleaning
+
+                # Re-raise the exception after cleaning
+                raise e
+
+            # If validation passes, call the original function
+            return func(*args, **kwargs)
+
+        return wrapper
+
+def validate_url(*args, **kwargs):
+    """Validates the URL format and checks if it's accessible."""
+    print("EXECUTING VALIDATE - URL")
+    url = kwargs.get('url') or args[1]
+    url_pattern = re.compile(
+        r'^(?:http|ftp)s?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or IP
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE
+    )
+    if not re.match(url_pattern, url):
+        raise ValueError(f"Invalid URL format: {url}")
+
+    try:
+        response = requests.head(url, timeout=5)
+        if response.status_code >= 400:
+            raise ValueError(f"URL is not accessible: {url} (Status code: {response.status_code})")
+    except requests.RequestException as e:
+        logging.error(f"Failed to access URL {url}: {e}")
+        raise ValueError(f"URL check failed: {url}")
+
+# Validates the soup object before extraction
+def validate_soup(*args, **kwargs):
+    """Validates the soup object before extraction."""
+    print("EXECUTING VALIDATE - soup")
+    soup = kwargs.get('soup') or args[1]  # Assuming the second argument is soup
+    if not soup or not isinstance(soup, BeautifulSoup):
+        print(f"Invalid or empty BeautifulSoup object provided.")
+        raise ValueError("Invalid or empty HTML content provided.")
+
+# Validates the CSS selector before extraction
+def validate_selectors(*args, **kwargs):
+    """Validates the CSS selector before extraction."""
+    print("EXECUTING VALIDATE - Selectors")
+    selectors = kwargs.get('selectors') or args[2]
+    for i, sel in enumerate(selectors):
+        if not isinstance(sel, str):
+            raise ValueError(f"Invalid selector at index {i}: {sel} is not a string.")
+        cleaned_sel = sel.strip()
+        if sel != cleaned_sel:
+            print(f"Selector with leading/trailing spaces: {sel}")
+            raise ValueError(f"Selector at index {i} contains leading/trailing spaces: {sel}")
+    return selectors
+
+
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
+def clean_url(*args, **kwargs):
+    """Removes unnecessary query parameters from URLs."""
+    print("EXECUTING CLEAN - URL")
+    url = kwargs.get('url') or args[1]
+    logging.info(f"Cleaning URL: {url}")
+    parsed_url = urllib.parse.urlparse(url)
+    cleaned_url = urllib.parse.urlunparse(parsed_url._replace(query=''))
+    kwargs['url'] = cleaned_url  # Pass the cleaned URL to the next function
+    print(f"Cleaned URL: {cleaned_url}")
+
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
+def clean_selectors(*args, **kwargs):
+    """Cleans the CSS selector before extraction."""
+    print("EXECUTING CLEAN - Selectors")
+    selectors = kwargs.get('selectors') or args[2]
+    for i, sel in enumerate(selectors):
+        temp_sel = deepcopy(sel)
+        selectors[i] = str(sel).strip()
+        if selectors[i] != temp_sel:
+            print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
+
+
 class BeautifulSoupScraper:
     """A scraper class using BeautifulSoup to extract data from web pages."""
 
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_url, clean=clean_url)
     def extract_data(self, url):
         """Extracts data from a webpage."""
         headers = {
@@ -36,7 +148,7 @@ class BeautifulSoupScraper:
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        title = self.extract_text(soup, ['h1', 'title', 'div.article-title']) or "Unknown Title"
+        title = self.extract_text(soup, ['h1     ', 'title', 'div.article-title']) or "Unknown Title"
         content = self.extract_content(soup) or "No content available"
         author = self.extract_author(soup) or "Unknown Author"
         publish_date = self.extract_publish_date(soup) or "Unknown Date"
@@ -55,6 +167,8 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_selectors, clean=clean_selectors)
+    @ScrapperMonitor(validate=validate_soup)
     def extract_text(self, soup, selectors):
         """Extract text using a list of CSS selectors."""
         for selector in selectors:
@@ -62,21 +176,24 @@ class BeautifulSoupScraper:
             if element:
                 return element.get_text(strip=True)
         return None
+
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_publish_date(self, soup):
-        """Extracts the publish date of the article from the HTML content."""
+        """Extracts the publishing date of the article from the HTML content."""
         return (
-            self.extract_published_date_metadata(soup) or
-            self.extract_published_date_html(soup) or
-            self.extract_published_date_json_ld(soup) or
-            self.extract_published_date_regex(soup)
+                self.extract_published_date_json_ld(soup) or
+                self.extract_published_date_metadata(soup) or
+                self.extract_published_date_html(soup) or
+                self.extract_published_date_regex(soup)
         )
 
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_metadata(self, soup):
         """Extract the published date from metadata tags."""
         date_tag = soup.find('meta', attrs={'property': 'article:published_time'})
@@ -87,10 +204,11 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_html(self, soup):
         """Extract the published date from HTML selectors."""
         date_selectors = [
-            'time.publish-date', 'span.date', 'div.pub-date',
+            'time.publish-date   ', 'span.date', 'div.pub-date',
             'meta[property="article:published_time"]', 'meta[name="publish-date"]', 'meta[name="dcterms.modified"]'
         ]
         for selector in date_selectors:
@@ -102,22 +220,45 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_json_ld(self, soup):
-        """Extract the dateModified from JSON-LD metadata."""
-        json_ld_script = soup.find("script", type="application/ld+json")
-        if json_ld_script:
+        """
+        Extract the published date from all JSON-LD scripts in the HTML.
+        Checks all scripts of type application/ld+json.
+        """
+        json_ld_scripts = soup.find_all("script", type="application/ld+json")
+        if not json_ld_scripts:
+            logging.warning("No JSON-LD scripts found.")
+            return None
+
+        for script in json_ld_scripts:
             try:
-                json_data = json.loads(json_ld_script.string)
+                json_data = json.loads(script.string)
+                # Handle cases where the JSON-LD contains an array of objects
                 if isinstance(json_data, list):
-                    json_data = json_data[0]  # Handle array case
-                return json_data.get('dateModified')
-            except json.JSONDecodeError:
-                logging.warning("Failed to decode JSON-LD data for published date extraction.")
+                    for item in json_data:
+                        if item.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
+                            if 'dateModified' in item:
+                                return item['dateModified']
+                            if 'datePublished' in item:
+                                return item['datePublished']
+                # Single JSON-LD object case
+                elif isinstance(json_data, dict):
+                    if json_data.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
+                        if 'dateModified' in json_data:
+                            return json_data['dateModified']
+                        if 'datePublished' in json_data:
+                            return json_data['datePublished']
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to decode JSON-LD script: {e}")
+
+        logging.info("No date information found in JSON-LD scripts.")
         return None
 
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_regex(self, soup):
         """Extract the published date using regex patterns."""
         date_patterns = [re.compile(r'Published on\s+(\w+\s\d{1,2},\s\d{4})')]
@@ -131,6 +272,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_content(self, soup):
         """Extracts the main content of the article."""
         # Elimină elementele non-content
@@ -138,7 +280,8 @@ class BeautifulSoupScraper:
             tag.decompose()
 
         # Încercăm să găsim conținutul principal folosind selectori CSS
-        content_selectors = ['article', 'div.article-content', 'div.content-body', 'div.post-content', 'div.data-app-meta-article']
+        content_selectors = ['article', 'div.article-content', 'div.content-body', 'div.post-content',
+                             'div.data-app-meta-article']
         for selector in content_selectors:
             element = soup.select_one(selector)
             if element:
@@ -167,6 +310,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_author(self, soup):
         """
         Attempts to extract the author's name using different strategies:
@@ -199,6 +343,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_author_metadata(self, soup):
         article_tags = soup.find_all('meta', attrs={'property': re.compile(r'.*author.*', re.I)})
         for tag in article_tags:
@@ -209,6 +354,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_author_html(self, soup):
         author_selectors = [
             'span.author', 'div.author-name', 'p.byline',
@@ -224,6 +370,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_author_regex(self, soup):
         byline_patterns = [
             re.compile(r'By\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)'),
@@ -238,6 +385,7 @@ class BeautifulSoupScraper:
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @ScrapperMonitor(validate=validate_soup)
     def extract_author_json_ld(self, soup):
         """Extrage autorul din JSON-LD."""
         json_ld_scripts = soup.find_all("script", type="application/ld+json")
@@ -250,7 +398,6 @@ class BeautifulSoupScraper:
                 json_data = json.loads(script.string)
                 if isinstance(json_data, list):
                     json_data = next((item for item in json_data if "@type" in item), {})
-
 
                 if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                     author_data = json_data.get("author", None)
@@ -275,6 +422,9 @@ class BeautifulSoupScraper:
         return []
 
     @staticmethod
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def process_author(author_data):
         """Procesează datele autorului și le returnează sub formă de listă."""
         authors = []
@@ -292,14 +442,19 @@ class BeautifulSoupScraper:
 
         return authors
 
+
 if __name__ == "__main__":
     scraper = BeautifulSoupScraper()
-    test_url = "https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621"
-    test_url2 ="https://www.bbc.com/news/articles/cgk18pdnxmmo"
-    test_url3="https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709"
+    test_url = ("https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa"
+                "-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621")
+    test_url2 = "https://www.bbc.com/news/articles/cgk18pdnxmmo"
+    test_url3 = ("https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din"
+                 "-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709")
     test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
-    test_url5="https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623"
-    article_data = scraper.extract_data(test_url2)
+    test_url5 = ("https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in"
+                 "-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623")
+    test_url_random = "https://www.jpost.com/breaking-news/article-761462"
+    article_data = scraper.extract_data(test_url_random)
 
     if article_data:
         print(f"URL: {article_data['url']}")
