@@ -9,36 +9,22 @@ from abc import ABC, abstractmethod
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import nltk
 from datetime import datetime
+from aop_wrapper import Aspect
 
 nltk.download('stopwords')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_class_name(instance):
     return instance.__class__.__name__
 
-def log_execution(func):
-    def wrapper(self, *args, **kwargs):
-        class_name = get_class_name(self)
-        func_name = func.__name__
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logging.info(f"[{timestamp}] Entering {class_name}.{func_name}")
-        
-        try:
-            result = func(self, *args, **kwargs)
-            logging.info(f"[{timestamp}] Exiting {class_name}.{func_name}")
-            return result
-        except Exception as e:
-            logging.error(f"[{timestamp}] Error in {class_name}.{func_name}: {e}")
-            raise
-    return wrapper
 
 class KeywordExtractor:
     def __init__(self, sentiment_analyzers):
         self.sentiment_analyzers = sentiment_analyzers
         self.stop_words = set(stopwords.words('english'))
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_keywords(self, text):
         sentences = text.split('.') 
         word_freq = Counter(re.findall(r'\b\w+\b', text.lower()))
@@ -67,7 +53,9 @@ class KeywordExtractor:
         return sorted_keywords
 
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def save_keywords_to_file(self, keywords, filename="keywords_summary.txt"):
         with open(filename, "w", encoding="utf-8") as file:
             for word, data in keywords.items():
@@ -78,14 +66,17 @@ class ArticleSummary:
     def __init__(self, analysis_results):
         self.analysis_results = analysis_results
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def generate_summary(self):
         sentiment = self.analysis_results["sentiment"]
         article_snippet = self.analysis_results["article_text"]
         summary = f"Article Summary:\n\nSentiment: {sentiment}\n\nArticle Excerpt: {article_snippet}...\n\nFor full article text, please visit the source link."
         return summary
-
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def save_summary_to_file(self, filename="article_summary.txt"):
         summary = self.generate_summary()
         with open(filename, "w", encoding="utf-8") as file:
@@ -93,7 +84,9 @@ class ArticleSummary:
         logging.info(f"Article summary saved to {filename}")
 
 class ArticleParser:
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_article_text(self, url):
         try:
             response = requests.get(url)
@@ -115,12 +108,16 @@ class ArticleParser:
         except Exception as e:
             raise Exception(f"An error occurred while processing the article: {e}")
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def remove_unwanted_content(self, soup):
         for unwanted in soup(['header', 'footer', 'nav', 'aside', 'script', 'style']):
             unwanted.decompose()
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def save_article_text_to_file(self, article_text, filename="article_text.txt"):
         with open(filename, "w", encoding="utf-8") as file:
             file.write(article_text)
@@ -132,7 +129,9 @@ class SentimentAnalyzer(ABC):
         pass
 
 class TextBlobSentimentAnalyzer(SentimentAnalyzer):
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def analyze_text(self, text):
         blob = TextBlob(text)
         polarity = blob.sentiment.polarity
@@ -143,7 +142,9 @@ class VaderSentimentAnalyzer(SentimentAnalyzer):
     def __init__(self):
         self.analyzer = SentimentIntensityAnalyzer()
 
-    @log_execution
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def analyze_text(self, text):
         score = self.analyzer.polarity_scores(text)['compound']
         sentiment = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"

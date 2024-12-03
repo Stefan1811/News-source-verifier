@@ -2,13 +2,16 @@ import tweepy
 import logging
 import re
 import json
-
+from aop_wrapper import Aspect
 
 class TweepyScraper:
     def __init__(self, bearer_token):
         """Initialize Tweepy client with Bearer Token."""
         self.client = tweepy.Client(bearer_token=bearer_token)
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_data(self, url):
         """
         Extracts information about a tweet based on its URL and returns it in JSON format.
@@ -68,20 +71,12 @@ class TweepyScraper:
             logging.error(f"Error fetching tweet data: {e}")
             return json.dumps({"error": f"Error fetching tweet data: {e}"})
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def _extract_tweet_id(self, url):
         """Extracts the tweet ID from a Twitter URL."""
         match = re.search(r"/status/(\d+)", url)
         return match.group(1) if match else None
 
 
-if __name__ == '__main__':
-    BEARER_TOKEN = "bearer_token"
-
-    scraper = TweepyScraper(BEARER_TOKEN)
-
-    # Test URL
-    tweet_url = "https://x.com/i/web/status/1783159712986382830"
-
-    # Extract tweet data
-    data_json = scraper.extract_data(tweet_url)
-    print(data_json)

@@ -4,6 +4,7 @@ from abc import ABC
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import re
 from models.ml_model_aop import Aspect
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -14,6 +15,10 @@ from tensorflow.keras.models import load_model
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../model_prep')))
 import model_config
 import mop 
+=======
+
+from models.aop_wrapper import Aspect
+
 
 class MLModel:
     """
