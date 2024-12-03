@@ -2,9 +2,11 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+from aop_wrapper import Aspect
 import re
 import sys
-from aop_wrapper import Aspect
+import mop
+
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
@@ -12,10 +14,78 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+
+@mop.monitor(
+    lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'] and
+                'url' in req.json and len(req.json.get('url', '').strip()) > 0,
+    lambda req: "Invalid request: HTTP method or URL field is invalid"
+)
+def validate_request(req):
+    """HTTP request validation."""
+    if req.method not in ['GET', 'POST', 'PUT', 'DELETE']:
+        print(f"Invalid HTTP method for request with path: {req.path}")
+    elif 'url' not in req.json or len(req.json.get('url', '').strip()) == 0:
+        print(f"URL validation failed for request with path: {req.path}")
+        print(f"Request data: {req.json}")
+    else:
+        print(f"Request validation passed for request with path: {req.path}")
+        print(f"Accessed {req.path} with {req.method}")
+    logging.info(f"Validated {req.method} request to {req.path} with data {req.json}")
+    return req
+
+def validate_content(req):
+    """Validates the content field after scraping."""
+    if 'content' in req.json and len(req.json.get('content', '').strip()) > 0:
+        print(f"Content validation passed for request with path: {req.path}")
+    else:
+        print(f"Content validation failed for request with path: {req.path}")
+        print(f"Request data: {req.json}")
+    return req
+
+def validate_non_null_fields(req):
+    """Validates that required fields are not null."""
+    required_fields = ['url', 'title', 'content', 'author', 'publish_date']
+    for field in required_fields:
+        if not req.json.get(field):
+            print(f"{field} validation failed for request with path: {req.path}")
+            print(f"Request data: {req.json}")
+            return req
+    print(f"All required fields validation passed for request with path: {req.path}")
+    return req
+
+@app.before_request
+def monitor_request():
+    validate_request(request)
+
 from textblob import TextBlob
 import logging
 
 from scraper_engine import BeautifulSoupScraper
+
+logging.basicConfig(
+    filename='logs.txt',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+def log_method_call(func):
+    """returnată
+    Decorator pentru apelurile functiilor, numele functiei, argumentele si valoarea returnata.
+    """
+    def wrapper(*args, **kwargs):
+        class_name = args[0].__class__.__name__
+        method_name = func.__name__
+
+        logging.info(f"Calling {class_name}.{method_name} with args={args[1:]}, kwargs={kwargs}")
+
+        result = func(*args, **kwargs)
+
+        logging.info(f"{class_name}.{method_name} returned: {result}")
+
+        return result
+    return wrapper
+
 
 class Article(db.Model):
     __tablename__ = 'articles'
@@ -34,7 +104,7 @@ class Article(db.Model):
     status = db.Column(db.String, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
@@ -59,6 +129,7 @@ class Article(db.Model):
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @log_method_call
     def analyze_sentiment(self):
         """
         Analyzes the sentiment of the article's content.
@@ -84,6 +155,7 @@ class Article(db.Model):
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @log_method_call
     def check_consistency(self):
         """
         Checks the consistency of the content to assess credibility.
@@ -101,16 +173,18 @@ class Article(db.Model):
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @log_method_call
     def calculate_trust_score(self, strategy):
         """
         Calculates the final trust score based on the selected strategy.
         """
         self.trust_score = strategy.calculate_trust_score(self)
         return self.trust_score
-    
+
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
+    @log_method_call
     def __str__(self):
         """
         Returns a string summary of the article with title, author, and status.
@@ -151,6 +225,11 @@ def create_article():
             trust_score=data.get('trust_score'),
             status=data.get('status')
         )
+
+        # Validate content after creating the article
+        request.json['content'] = article.content
+        validate_non_null_fields(request)
+
         db.session.add(article)
         db.session.commit()
         return jsonify(article.to_dict()), 201
@@ -177,6 +256,10 @@ def scrape_and_create_article():
 
         if not article_data:
             return jsonify({"error": "Failed to extract data from the provided URL"}), 500
+
+        # Validate content after scraping
+        request.json['content'] = article_data.get('content', '')
+        validate_content(request)
 
         article = Article(
             url=article_data.get('url'),
