@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+from aop_wrapper import Aspect
 import re
 import sys
 import mop
@@ -104,6 +105,9 @@ class Article(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def to_dict(self):
         return {
             'article_id': self.article_id,
@@ -122,6 +126,9 @@ class Article(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     @log_method_call
     def analyze_sentiment(self):
         """
@@ -133,7 +140,9 @@ class Article(db.Model):
         self.sentiment_subjectivity = blob.sentiment.subjectivity
         return self.sentiment_subjectivity
 
-
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def extract_keywords(self):
         """
         Extracts relevant keywords from the article's content.
@@ -143,6 +152,9 @@ class Article(db.Model):
         keywords = re.findall(r'\w+', self.content)
         return list(set(keywords))[:3]
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     @log_method_call
     def check_consistency(self):
         """
@@ -158,6 +170,9 @@ class Article(db.Model):
             self.content_consistency = 0.9
         return self.content_consistency
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     @log_method_call
     def calculate_trust_score(self, strategy):
         """
@@ -166,6 +181,9 @@ class Article(db.Model):
         self.trust_score = strategy.calculate_trust_score(self)
         return self.trust_score
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     @log_method_call
     def __str__(self):
         """
