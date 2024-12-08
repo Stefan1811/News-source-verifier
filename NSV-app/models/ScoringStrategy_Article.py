@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
+from aop_wrapper import Aspect
 
 class ScoringStrategy(ABC):
     """Abstract base class for scoring strategy."""
     @abstractmethod
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate_trust_score(self, article):
         pass
 
 class SimpleAverageStrategy(ScoringStrategy):
     """Strategy for calculating trust score as a simple average."""
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate_trust_score(self, article):
         # Calculate the simple average of the metrics
         return (
@@ -19,6 +26,9 @@ class SimpleAverageStrategy(ScoringStrategy):
 
 class WeightedAverageStrategy(ScoringStrategy):
     """Strategy for calculating trust score as a weighted average."""
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def calculate_trust_score(self, article):
         # Calculate the weighted average based on predefined weights
         return (

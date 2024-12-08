@@ -100,3 +100,42 @@
 2024-11-21 23:18:28 - 127.0.0.1 - - [21/Nov/2024 23:18:28] "GET /users HTTP/1.1" 200 -
 2024-11-21 23:19:31 -  * Detected change in 'c:\\Users\\borfa\\Desktop\\Facultate\\ASET\\News-source-verifier\\NSV-app\\api.py', reloading
 2024-11-21 23:19:31 -  * Restarting with stat
+2024-11-29 19:08:38 - Executing Admin.__init__ with arguments: 1, admin, test@email.org
+2024-11-29 19:08:38 - Calling method: __init__ with arguments: (1, 'admin', 'test@email.org')
+2024-11-29 19:08:38 - __init__ took 0.0000 seconds
+2024-11-29 19:08:38 - Executing Admin.manage_users with arguments: add, username=user1, email=user@email.org
+2024-11-29 19:08:38 - manage_users took 0.0000 seconds
+2024-11-29 19:08:38 - Executing Admin.view_all_verifications with arguments: 
+2024-11-29 19:08:38 - view_all_verifications took 0.0000 seconds
+2024-11-29 19:08:38 - Executing Admin.edit_trustscore_parameters with arguments: {'param1': 0.5, 'param2': 0.3}
+2024-11-29 19:08:38 - edit_trustscore_parameters took 0.0000 seconds
+2024-11-29 19:16:23,040 - INFO - Executing User.__init__ with arguments: 1, alice, alice@email.org
+2024-11-29 19:16:23,040 - ERROR - Exception in __init__: 'User' object has no attribute 'log_method_call'
+2024-11-29 19:16:23,041 - INFO - __init__ took 0.0010 seconds
+2024-11-29 19:16:23,041 - INFO - Executing User.get_user_info with arguments: 
+2024-11-29 19:16:23,041 - ERROR - Exception in get_user_info: 'User' object has no attribute 'user_id'
+2024-11-29 19:16:23,041 - INFO - get_user_info took 0.0000 seconds
+2024-11-29 19:16:23,041 - INFO - Executing User.verify_article with arguments: {'id': 123, 'title': 'Example Article', 'content': 'This is an example article.'}
+2024-11-29 19:16:23,041 - INFO - verify_article took 0.0000 seconds
+2024-11-29 19:16:23,041 - INFO - Executing User.view_verification_result with arguments: 123
+2024-11-29 19:16:23,041 - INFO - view_verification_result took 0.0000 seconds
+2024-11-29 19:16:31,766 - INFO - Executing User.__init__ with arguments: 1, alice, alice@email.org
+2024-11-29 19:16:31,766 - ERROR - Exception in __init__: 'User' object has no attribute 'log_method_call'
+2024-11-29 19:16:31,766 - INFO - __init__ took 0.0000 seconds
+2024-11-29 19:16:31,766 - INFO - Executing User.get_user_info with arguments: 
+2024-11-29 19:16:31,766 - ERROR - Exception in get_user_info: 'User' object has no attribute 'user_id'
+2024-11-29 19:16:31,766 - INFO - get_user_info took 0.0000 seconds
+2024-11-29 19:16:31,767 - INFO - Executing User.verify_article with arguments: {'id': 123, 'title': 'Example Article', 'content': 'This is an example article.'}
+2024-11-29 19:16:31,767 - INFO - verify_article took 0.0000 seconds
+2024-11-29 19:16:31,767 - INFO - Executing User.view_verification_result with arguments: 123
+2024-11-29 19:16:31,767 - INFO - view_verification_result took 0.0000 seconds
+2024-11-29 19:16:42,514 - INFO - Executing User.__init__ with arguments: 1, alice, alice@email.org
+2024-11-29 19:16:42,514 - ERROR - Exception in __init__: 'User' object has no attribute 'log_method_call'
+2024-11-29 19:16:42,514 - INFO - __init__ took 0.0000 seconds
+2024-11-29 19:16:42,515 - INFO - Executing User.get_user_info with arguments: 
+2024-11-29 19:16:42,515 - ERROR - Exception in get_user_info: 'User' object has no attribute 'user_id'
+2024-11-29 19:16:42,515 - INFO - get_user_info took 0.0000 seconds
+2024-11-29 19:16:42,515 - INFO - Executing User.verify_article with arguments: {'id': 123, 'title': 'Example Article', 'content': 'This is an example article.'}
+2024-11-29 19:16:42,515 - INFO - verify_article took 0.0000 seconds
+2024-11-29 19:16:42,515 - INFO - Executing User.view_verification_result with arguments: 123
+2024-11-29 19:16:42,515 - INFO - view_verification_result took 0.0000 seconds

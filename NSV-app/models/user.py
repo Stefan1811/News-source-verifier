@@ -1,7 +1,10 @@
 import logging
-logging.basicConfig(filename='logs.txt', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+from aop_wrapper import Aspect
 
 class User:
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def __init__(self, user_id: int, username: str, email: str):
         """Initialize a User with basic information."""
         self.log_method_call('__init__', user_id, username, email)
@@ -10,12 +13,12 @@ class User:
         self.email = email
         self.role = "user"
     
-    def log_method_call(self, method_name, *args):
-        logging.info(f"Calling method: {method_name} with arguments: {args}")
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def get_user_info(self):
         """Retrieve basic user information."""
-        self.log_method_call('get_user_info')
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -23,9 +26,11 @@ class User:
             "role": self.role
         }
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def verify_article(self, article):
         """Submit an article for verification."""
-        self.log_method_call('verify_article', article)
         # Basic implementation
         return {
             "article_id": article["id"],
@@ -33,9 +38,11 @@ class User:
             "timestamp": "2024-11-07"
         }
 
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
     def view_verification_result(self, article_id: int):
         """View the verification result for a specific article."""
-        self.log_method_call('view_verification_result', article_id)
         # Basic implementation
         return {
             "article_id": article_id,
