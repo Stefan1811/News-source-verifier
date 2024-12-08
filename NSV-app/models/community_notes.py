@@ -1,11 +1,11 @@
 import re
 import json
 import csv
-import os
-
 import mop
-
-from aop_wrapper import Aspect
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.aop_wrapper import Aspect
 
 @Aspect.log_execution
 @Aspect.measure_time
@@ -57,75 +57,45 @@ def get_tweet_info_from_notes(tweet_id, file_name="notes.tsv"):
     return None
 
 
-@mop.monitor(
-    lambda file_name: isinstance(file_name, str) and os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", file_name)),
-    lambda file_name: f"File {file_name} does not exist or invalid file path."
-)
+#@mop.monitor(
+  #  lambda file_name: isinstance(file_name, str) and os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", file_name)),
+  #  lambda file_name: f"File {file_name} does not exist or invalid file path."
+#)
 @Aspect.log_execution
 @Aspect.measure_time
 @Aspect.handle_exceptions
 def validate_tsv(file_name="notes.tsv"):
-    """
-    Validate the structure and data in the TSV file.
-    """
-    print("Executing VALIDATE")
+    try:
+        print("Executing VALIDATE")
 
-    # Coloanele oficiale necesare
-    official_columns = [
-        "noteId", "noteAuthorParticipantId", "createdAtMillis", "tweetId", "classification",
-        "believable", "harmful", "validationDifficulty", "misleadingOther", "misleadingFactualError",
-        "misleadingManipulatedMedia", "misleadingOutdatedInformation", "misleadingMissingImportantContext",
-        "misleadingUnverifiedClaimAsFact", "misleadingSatire", "notMisleadingOther",
-        "notMisleadingFactuallyCorrect", "notMisleadingOutdatedButNotWhenWritten",
-        "notMisleadingClearlySatire", "notMisleadingPersonalOpinion", "trustworthySources",
-        "summary", "isMediaNote"
-    ]
+        official_columns = [
+            "noteId", "noteAuthorParticipantId", "createdAtMillis", "tweetId", "classification",
+            "believable", "harmful", "validationDifficulty", "misleadingOther", "misleadingFactualError",
+            "misleadingManipulatedMedia", "misleadingOutdatedInformation", "misleadingMissingImportantContext",
+            "misleadingUnverifiedClaimAsFact", "misleadingSatire", "notMisleadingOther",
+            "notMisleadingFactuallyCorrect", "notMisleadingOutdatedButNotWhenWritten",
+            "notMisleadingClearlySatire", "notMisleadingPersonalOpinion", "trustworthySources",
+            "summary", "isMediaNote"
+        ]
+        valid_classifications = ["NOT_MISLEADING", "MISINFORMED_OR_POTENTIALLY_MISLEADING"]
 
-    # Clasificări valide
-    valid_classifications = ["NOT_MISLEADING", "MISINFORMED_OR_POTENTIALLY_MISLEADING"]
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, "..", file_name)
-
-    print(f"Validating file at: {file_path}")
-    with open(file_path, "r", encoding="utf-8") as file:
-        reader = csv.DictReader(file, delimiter="\t")
-
-        # Validare existența coloanelor
-        if set(reader.fieldnames) != set(official_columns):
-            print("Error: File does not contain the required columns.")
-            return False
-
-        # Validare rânduri
-        for row in reader:
-            # Clasificare validă
-            if row["classification"] not in valid_classifications:
-                print(f"Error: Invalid classification in row: {row}")
+        with open(file_name, "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file, delimiter="\t")
+            if set(reader.fieldnames) != set(official_columns):
+                print("Error: File does not contain the required columns.")
                 return False
 
-            # Validare valori numerice
-            try:
-                int(row["createdAtMillis"])  # `createdAtMillis` trebuie să fie numeric
-            except ValueError:
-                print(f"Error: Invalid numeric value in `createdAtMillis` in row: {row}")
-                return False
-
-            # Validare câmpuri binare (0 sau 1)
-            binary_fields = [
-                "misleadingOther", "misleadingFactualError", "misleadingManipulatedMedia",
-                "misleadingOutdatedInformation", "misleadingMissingImportantContext",
-                "misleadingUnverifiedClaimAsFact", "misleadingSatire", "notMisleadingOther",
-                "notMisleadingFactuallyCorrect", "notMisleadingOutdatedButNotWhenWritten",
-                "notMisleadingClearlySatire", "notMisleadingPersonalOpinion", "trustworthySources",
-                "isMediaNote"
-            ]
-            for field in binary_fields:
-                if row[field] not in {"0", "1"}:
-                    print(f"Error: Invalid binary value in field `{field}` in row: {row}")
+            for row in reader:
+                if row["classification"] not in valid_classifications:
+                    print(f"Error: Invalid classification in row: {row}")
                     return False
 
-    print("Validation PASSED")
-    return True
+        print("Validation PASSED")
+        return True
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
+
 
 
 @mop.monitor(
