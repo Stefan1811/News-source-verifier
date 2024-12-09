@@ -9,77 +9,95 @@ from abc import ABC, abstractmethod
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import nltk
 from datetime import datetime
-from aop_wrapper import Aspect
+from models.aop_wrapper import Aspect
 
 nltk.download('stopwords')
 
 def get_class_name(instance):
     return instance.__class__.__name__
 
+
+class Trigger:
+    @staticmethod
+    def on_validation_success(message):
+        logging.info(f"Trigger Action: Validation success - {message}")
+
+    @staticmethod
+    def on_validation_violation(message):
+        logging.error(f"Trigger Action: Validation violation - {message}")
+
 class Monitor:
     @staticmethod
     def validate_keyword_extraction(keywords):
         if not keywords:
-            logging.error("No keywords extracted.")
-            raise ValueError("Keyword extraction failed, no keywords found.")
+            message = "No keywords extracted."
+            Trigger.on_validation_violation(message)
+            raise ValueError(message)
         else:
-            logging.info(f"Keyword extraction validated. {len(keywords)} keywords found.")
+            message = f"Keyword extraction validated. {len(keywords)} keywords found."
+            Trigger.on_validation_success(message)
 
     @staticmethod
     def validate_sentiment_analysis(keywords):
         for word, data in keywords.items():
             if data["sentiment"] not in ["Positive", "Negative", "Neutral"]:
-                logging.error(f"Invalid sentiment for keyword: {word}")
-                raise ValueError(f"Invalid sentiment for keyword: {word}")
-        logging.info("Sentiment analysis validated for all keywords.")
+                message = f"Invalid sentiment for keyword: {word}"
+                Trigger.on_validation_violation(message)
+                raise ValueError(message)
+        Trigger.on_validation_success("Sentiment analysis validated for all keywords.")
 
     @staticmethod
     def validate_url(url):
         regex = re.compile(r'^(https?://)?[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})')
         if not regex.match(url):
-            logging.error(f"Invalid URL: {url}")
-            raise ValueError(f"Invalid URL: {url}")
-        logging.info(f"URL is valid: {url}")
+            message = f"Invalid URL: {url}"
+            Trigger.on_validation_violation(message)
+            raise ValueError(message)
+        Trigger.on_validation_success(f"URL is valid: {url}")
 
     @staticmethod
     def validate_article_content(article_text):
         if len(article_text) < 100:  # Minimum length for a valid article
-            logging.error("Article content is too short to be valid.")
-            raise ValueError("Article content is too short.")
-        logging.info(f"Article content validated. Length: {len(article_text)} characters.")
+            message = "Article content is too short to be valid."
+            Trigger.on_validation_violation(message)
+            raise ValueError(message)
+        Trigger.on_validation_success(f"Article content validated. Length: {len(article_text)} characters.")
 
     @staticmethod
     def validate_sentiment_score(sentiment_score, source=""):
         if not (-1 <= sentiment_score <= 1):
-            logging.error(f"Sentiment score out of range: {sentiment_score} from {source}")
-            raise ValueError(f"Sentiment score out of range: {sentiment_score}")
-        logging.info(f"Sentiment score validated for {source}: {sentiment_score}")
+            message = f"Sentiment score out of range: {sentiment_score} from {source}"
+            Trigger.on_validation_violation(message)
+            raise ValueError(message)
+        Trigger.on_validation_success(f"Sentiment score validated for {source}: {sentiment_score}")
 
     @staticmethod
     def validate_sentiment_distribution(keywords):
         sentiment_counts = Counter([data["sentiment"] for data in keywords.values()])
         if sentiment_counts["Positive"] < 1 or sentiment_counts["Negative"] < 1:
-            logging.warning(f"Imbalanced sentiment distribution: {sentiment_counts}")
+            message = f"Imbalanced sentiment distribution: {sentiment_counts}"
+            Trigger.on_validation_violation(message)
         else:
-            logging.info(f"Sentiment distribution: {sentiment_counts}")
+            Trigger.on_validation_success(f"Sentiment distribution: {sentiment_counts}")
 
     @staticmethod
     def validate_execution_time(start_time, end_time, process_name):
         elapsed_time = end_time - start_time
         elapsed_seconds = elapsed_time.total_seconds()  # Convert timedelta to seconds
-        if elapsed_seconds > 5:  # Arbitrary threshold for process duration in seconds
-            logging.warning(f"{process_name} took too long: {elapsed_seconds:.2f} seconds")
+        if elapsed_seconds > 5:
+            message = f"{process_name} took too long: {elapsed_seconds:.2f} seconds"
+            Trigger.on_validation_violation(message)
         else:
-            logging.info(f"{process_name} completed in {elapsed_seconds:.2f} seconds.")
-
+            Trigger.on_validation_success(f"{process_name} completed in {elapsed_seconds:.2f} seconds.")
 
     @staticmethod
     def validate_keyword_frequency(keywords):
         frequencies = [data["frequency"] for data in keywords.values()]
         max_frequency = max(frequencies)
-        if max_frequency > 20:  # Arbitrary threshold for frequent keywords
-            logging.warning(f"Keyword with excessive frequency detected: {max_frequency}")
-        logging.info(f"Keyword frequencies validated. Max frequency: {max_frequency}")
+        if max_frequency > 20:
+            message = f"Keyword with excessive frequency detected: {max_frequency}"
+            Trigger.on_validation_violation(message)
+        Trigger.on_validation_success(f"Keyword frequencies validated. Max frequency: {max_frequency}")
 
     @staticmethod
     def validate_data_completeness(data):
@@ -87,24 +105,27 @@ class Monitor:
         for word, values in data.items():
             missing_keys = [key for key in required_keys if key not in values]
             if missing_keys:
-                logging.error(f"Missing keys for keyword {word}: {missing_keys}")
-                raise ValueError(f"Missing keys for keyword {word}: {missing_keys}")
-        logging.info("Data completeness validated.")
+                message = f"Missing keys for keyword {word}: {missing_keys}"
+                Trigger.on_validation_violation(message)
+                raise ValueError(message)
+        Trigger.on_validation_success("Data completeness validated.")
 
     @staticmethod
     def validate_exception_handling(exception):
-        logging.error(f"Exception encountered: {exception}")
-        raise exception  # Reraising the exception can help to propagate the error
+        message = f"Exception encountered: {exception}"
+        Trigger.on_validation_violation(message)
+        raise exception
 
     @staticmethod
     def validate_log_integrity():
-        log_file = "app.log"  # Or the actual log file name you're using
+        log_file = "app.log"  
         with open(log_file, "r") as file:
             logs = file.readlines()
-            if len(logs) < 10:  # Ensure enough log entries are generated
-                logging.warning("Log file contains insufficient log entries.")
-            logging.info("Log file integrity validated.")
-
+            if len(logs) < 10: 
+                message = "Log file contains insufficient log entries."
+                Trigger.on_validation_violation(message)
+            else:
+                Trigger.on_validation_success("Log file integrity validated.")
 
 class KeywordExtractor:
     def __init__(self, sentiment_analyzers):
@@ -265,33 +286,26 @@ def main():
     parser = ArticleParser()
 
     try:
-        # Extract article text from the URL
         article_text = parser.extract_article_text(url)
         parser.save_article_text_to_file(article_text, "article_text.txt")
         print("Article text saved to 'article_text.txt'.")
 
-        # Validate article content
         Monitor.validate_article_content(article_text)
 
-        # Extract and analyze keywords from the article text
         keywords = keyword_extractor.extract_keywords(article_text)
         keyword_extractor.save_keywords_to_file(keywords, "keywords_summary.txt")
         print("Keywords and their sentiments saved to 'keywords_summary.txt'.")
 
-        # Validate keyword extraction and sentiment analysis
         Monitor.validate_keyword_extraction(keywords)
         Monitor.validate_sentiment_analysis(keywords)
         Monitor.validate_sentiment_distribution(keywords)
         Monitor.validate_keyword_frequency(keywords)
         Monitor.validate_data_completeness(keywords)
 
-        # Validate sentiment analysis scores for individual keywords
         for word, data in keywords.items():
             Monitor.validate_sentiment_score(data["vader_score"], word)
 
-        # Simulate monitoring execution time by comparing start and end times
         start_time = datetime.now()
-        # Assuming some operation happens here...
         end_time = datetime.now()
         Monitor.validate_execution_time(start_time, end_time, "Keyword extraction")
 
@@ -300,9 +314,7 @@ def main():
             print(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}")
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        Monitor.validate_exception_handling(e)
 
-# Run the main function if the script is executed
 if __name__ == "__main__":
     main()
-
