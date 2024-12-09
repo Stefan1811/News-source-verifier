@@ -20,7 +20,6 @@ class ScrapperMonitor:
         """
         self.validate = validate
         self.clean = clean
-
     def __call__(self, func):
         """
         This allows ScrapperMonitor to be used as a decorator with the given validate and clean functions.
@@ -92,7 +91,10 @@ def validate_selectors(*args, **kwargs):
 def clean_url(*args, **kwargs):
     """Removes unnecessary query parameters from URLs."""
     print("EXECUTING CLEAN - URL")
-    url = kwargs.get('url') or args[1]
+    url = kwargs.get('url')
+    if url is None and args is not None:
+        if len(args) >= 2:
+            url = args[1]  # Assuming the second argument is the URL
     logging.info(f"Cleaning URL: {url}")
     parsed_url = urllib.parse.urlparse(url)
     cleaned_url = urllib.parse.urlunparse(parsed_url._replace(query=''))
@@ -111,115 +113,6 @@ def clean_selectors(*args, **kwargs):
         selectors[i] = str(sel).strip()
         if selectors[i] != temp_sel:
             print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
-
-
-class ScrapperMonitor:
-    def __init__(self, validate=None, clean=None):
-        """
-        ScrapperMonitor will take validate and clean functions as arguments.
-        """
-        self.validate = validate
-        self.clean = clean
-
-    def __call__(self, func):
-        """
-        This allows ScrapperMonitor to be used as a decorator with the given validate and clean functions.
-        """
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # First, attempt to apply the validation
-            try:
-                if self.validate:
-                    self.validate(*args, **kwargs)  # Apply the validation
-            except Exception as e:
-                print(f"Validation failed: {e}")
-
-                if self.clean:
-                    print("Applying cleaning function...")
-                    self.clean(*args, **kwargs)  # Apply the cleaning
-
-                # Re-raise the exception after cleaning
-                raise e
-
-            # If validation passes, call the original function
-            return func(*args, **kwargs)
-
-        return wrapper
-
-def validate_url(*args, **kwargs):
-    """Validates the URL format and checks if it's accessible."""
-    print("EXECUTING VALIDATE - URL")
-    url = kwargs.get('url') or args[1]
-    url_pattern = re.compile(
-        r'^(?:http|ftp)s?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or IP
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE
-    )
-    if not re.match(url_pattern, url):
-        raise ValueError(f"Invalid URL format: {url}")
-
-    try:
-        response = requests.head(url, timeout=5)
-        if response.status_code >= 400:
-            raise ValueError(f"URL is not accessible: {url} (Status code: {response.status_code})")
-    except requests.RequestException as e:
-        logging.error(f"Failed to access URL {url}: {e}")
-        raise ValueError(f"URL check failed: {url}")
-
-# Validates the soup object before extraction
-def validate_soup(*args, **kwargs):
-    """Validates the soup object before extraction."""
-    print("EXECUTING VALIDATE - soup")
-    soup = kwargs.get('soup') or args[1]  # Assuming the second argument is soup
-    if not soup or not isinstance(soup, BeautifulSoup):
-        print(f"Invalid or empty BeautifulSoup object provided.")
-        raise ValueError("Invalid or empty HTML content provided.")
-
-# Validates the CSS selector before extraction
-def validate_selectors(*args, **kwargs):
-    """Validates the CSS selector before extraction."""
-    print("EXECUTING VALIDATE - Selectors")
-    selectors = kwargs.get('selectors') or args[2]
-    for i, sel in enumerate(selectors):
-        if not isinstance(sel, str):
-            raise ValueError(f"Invalid selector at index {i}: {sel} is not a string.")
-        cleaned_sel = sel.strip()
-        if sel != cleaned_sel:
-            print(f"Selector with leading/trailing spaces: {sel}")
-            raise ValueError(f"Selector at index {i} contains leading/trailing spaces: {sel}")
-    return selectors
-
-
-@Aspect.log_execution
-@Aspect.measure_time
-@Aspect.handle_exceptions
-def clean_url(*args, **kwargs):
-    """Removes unnecessary query parameters from URLs."""
-    print("EXECUTING CLEAN - URL")
-    url = kwargs.get('url') or args[1]
-    logging.info(f"Cleaning URL: {url}")
-    parsed_url = urllib.parse.urlparse(url)
-    cleaned_url = urllib.parse.urlunparse(parsed_url._replace(query=''))
-    kwargs['url'] = cleaned_url  # Pass the cleaned URL to the next function
-    print(f"Cleaned URL: {cleaned_url}")
-
-@Aspect.log_execution
-@Aspect.measure_time
-@Aspect.handle_exceptions
-def clean_selectors(*args, **kwargs):
-    """Cleans the CSS selector before extraction."""
-    print("EXECUTING CLEAN - Selectors")
-    selectors = kwargs.get('selectors') or args[2]
-    for i, sel in enumerate(selectors):
-        temp_sel = deepcopy(sel)
-        selectors[i] = str(sel).strip()
-        if selectors[i] != temp_sel:
-            print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
-
-
 class BeautifulSoupScraper:
     """A scraper class using BeautifulSoup to extract data from web pages."""
 
@@ -243,10 +136,10 @@ class BeautifulSoupScraper:
                 if response.status_code == 200:
                     break
             except requests.RequestException as e:
-                logging.error(f"Request failed (Attempt {attempt + 1}): {e}")
+                raise ValueError(f"Request failed (Attempt {attempt + 1}).")
                 time.sleep(2)
         else:
-            logging.error("Failed to retrieve webpage after multiple attempts.")
+            raise ValueError("Failed to retrieve webpage after multiple attempts.")
             return None
 
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -277,25 +170,21 @@ class BeautifulSoupScraper:
         if title:
             logging.debug(f"Title found in article: {title}")
             return title
-
         # If no article title found, try to extract from JSON-LD
         title = self.extract_title_from_json_ld(soup)
         if title:
             logging.debug(f"Title found in JSON-LD: {title}")
             return title
-
         # If still no title, try extracting from metadata (og:title, meta[name="title"])
         title = self.extract_title_from_metadata(soup)
         if title:
             logging.debug(f"Title found in metadata: {title}")
             return title
-
         # Finally, fallback to the <title> tag in HTML (usually the page title)
         title = soup.title.string if soup.title else None
         if title:
             logging.debug(f"Title found in <title> tag: {title}")
             return title
-
         # If no title found, return the default fallback
         logging.warning("No title found in any source, using default.")
         return "Unknown Title"
@@ -328,7 +217,6 @@ class BeautifulSoupScraper:
             except json.JSONDecodeError:
                 logging.warning("Failed to decode JSON-LD script.")
         return None
-
     def extract_title_from_metadata(self, soup):
         """Extract title from metadata tags (og:title, meta[name="title"])."""
         meta_tag = soup.find('meta', attrs={'property': 'og:title'}) or \
@@ -416,7 +304,6 @@ class BeautifulSoupScraper:
                                 return item['dateModified']
                             elif 'datePublished' in item:
                                 return item['datePublished']
-                # Single JSON-LD object case
                 elif isinstance(json_data, dict):
                     if json_data.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                         if 'dateModified' in json_data:
@@ -460,13 +347,9 @@ class BeautifulSoupScraper:
                 # Extragem doar paragrafele din acest element
                 paragraphs = element.find_all('p')
                 filtered_paragraphs = [
-                    p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50
-                ]
-
-                # Dacă avem paragrafe semnificative, le returnăm
+                    p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50]
                 if filtered_paragraphs:
                     return "\n".join(filtered_paragraphs)
-
             # Dacă nu am găsit conținutul dorit, returnăm None
         return None
 
@@ -501,7 +384,6 @@ class BeautifulSoupScraper:
                 elif isinstance(author, str):
                     print(f"Author extracted: {author}")  # Debug print
                     return author
-
         print("No author found.")  # Debug print
         return None
 
@@ -576,12 +458,10 @@ class BeautifulSoupScraper:
                         if item.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                             author_data = item.get("author", None)
                             authors.extend(self.process_author(author_data))  # Add authors to the list
-
                 elif isinstance(json_data, dict):  # Single JSON-LD object
                     if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                         author_data = json_data.get("author", None)
                         authors.extend(self.process_author(author_data))  # Add authors to the list
-
                 if '@graph' in json_data:
                     # If @graph exists in the JSON-LD, process it as well
                     graph_items = json_data['@graph']

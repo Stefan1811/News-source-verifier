@@ -1,4 +1,7 @@
+import logging
 import unittest
+from io import StringIO
+
 import requests
 from unittest.mock import patch, MagicMock
 import os
@@ -279,6 +282,23 @@ class TestExtractAuthorFunctions(unittest.TestCase):
         # Assert that the author extracted is 'James Brown'
         self.assertEqual(author, 'James Brown')
 
+    def test_extract_author_single_author_string(self):
+        """Test extraction of a single author returned as a string."""
+        # Mock soup for HTML with a single author returned by a specific method
+        soup_single_author = BeautifulSoup("<html><body><p>Author: John Doe</p></body></html>", 'html.parser')
+
+        # Mock the extraction methods to simulate a single string author return
+        self.scraper.extract_author_json_ld = lambda soup: None  # JSON-LD returns nothing
+        self.scraper.extract_author_metadata = lambda soup: None  # Metadata returns nothing
+        self.scraper.extract_author_html = lambda soup: "John Doe"  # HTML selectors return a single author string
+        self.scraper.extract_author_regex = lambda soup: None  # Regex returns nothing
+
+        # Call the extract_author method
+        author = self.scraper.extract_author(soup_single_author)
+
+        # Assert the single author is correctly returned as a string
+        self.assertEqual(author, "John Doe")
+
     def test_extract_author_regex(self):
         """Test extraction of author using regex patterns."""
 
@@ -442,6 +462,140 @@ class TestExtractPublishedDateJsonLD(unittest.TestCase):
         """Test extracting the published date when dateModified is not present."""
         publish_date = self.scraper.extract_published_date_json_ld(self.html_content_json_ld_no_modified)
         self.assertEqual(publish_date, '2024-12-01')
+
+    def test_extract_published_date_time_publish_date(self):
+        """Test extraction from time.publish-date."""
+        soup = BeautifulSoup("""
+        <html>
+            <body>
+                <time class="publish-date">2024-12-09</time>
+            </body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "2024-12-09")
+
+    def test_extract_published_date_span_date(self):
+        """Test extraction from span.date."""
+        soup = BeautifulSoup("""
+        <html>
+            <body>
+                <span class="date">December 9, 2024</span>
+            </body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "December 9, 2024")
+
+    def test_extract_published_date_div_pub_date(self):
+        """Test extraction from div.pub-date."""
+        soup = BeautifulSoup("""
+        <html>
+            <body>
+                <div class="pub-date">09/12/2024</div>
+            </body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "09/12/2024")
+
+    def test_extract_published_date_json_ld_dateModified_in_object(self):
+        """Test extraction of dateModified from a single JSON-LD object."""
+        soup_date_modified = BeautifulSoup("""
+        <html>
+        <script type="application/ld+json">
+        {
+            "@context": "http://schema.org",
+            "@type": "NewsArticle",
+            "headline": "Test Article",
+            "dateModified": "2024-12-05"
+        }
+        </script>
+        </html>
+        """, 'html.parser')
+
+        modified_date = self.scraper.extract_published_date_json_ld(soup_date_modified)
+
+        # Assert the dateModified is correctly extracted
+        self.assertEqual(modified_date, "2024-12-05")
+
+    def test_extract_published_date_meta_property_published_time(self):
+        """Test extraction from meta[property='article:published_time']."""
+        soup = BeautifulSoup("""
+        <html>
+            <head>
+                <meta property="article:published_time" content="2024-12-09">
+            </head>
+            <body></body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "2024-12-09")
+
+    def test_extract_published_date_meta_name_publish_date(self):
+        """Test extraction from meta[name='publish-date']."""
+        soup = BeautifulSoup("""
+        <html>
+            <head>
+                <meta name="publish-date" content="December 9, 2024">
+            </head>
+            <body></body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "December 9, 2024")
+
+    def test_extract_published_date_meta_name_dcterms_modified(self):
+        """Test extraction from meta[name='dcterms.modified']."""
+        soup = BeautifulSoup("""
+        <html>
+            <head>
+                <meta name="dcterms.modified" content="2024-12-09T12:00:00">
+            </head>
+            <body></body>
+        </html>
+        """, 'html.parser')
+
+        date = self.scraper.extract_published_date_html(soup)
+
+        self.assertEqual(date, "2024-12-09T12:00:00")
+
+    def test_extract_published_date_json_ld_datePublished_in_array(self):
+        """Test extraction of datePublished from JSON-LD array."""
+        soup_date_published = BeautifulSoup("""
+        <html>
+        <script type="application/ld+json">
+        [
+            {
+                "@context": "http://schema.org",
+                "@type": "NewsArticle",
+                "headline": "Test Article",
+                "datePublished": "2024-12-01"
+            },
+            {
+                "@context": "http://schema.org",
+                "@type": "Article",
+                "headline": "Another Article"
+            }
+        ]
+        </script>
+        </html>
+        """, 'html.parser')
+
+        published_date = self.scraper.extract_published_date_json_ld(soup_date_published)
+
+        # Assert the datePublished is correctly extracted
+        self.assertEqual(published_date, "2024-12-01")
 
     def test_extract_published_date_json_ld_invalid(self):
         """Test handling invalid JSON-LD (malformed JSON)."""
@@ -774,10 +928,92 @@ class TestExtractTitle(unittest.TestCase):
         result = self.scraper.extract_title(self.soup_html)
         self.assertEqual(result, "Article Title")
 
+    def test_extract_title_from_json_ld_list(self):
+        """Test extraction of title from JSON-LD with a list of objects."""
+        soup_json_ld_list = BeautifulSoup("""
+        <html>
+            <script type="application/ld+json">
+            [
+                {
+                    "@context": "http://schema.org",
+                    "@type": "NewsArticle",
+                    "headline": "List Headline"
+                },
+                {
+                    "@context": "http://schema.org",
+                    "@type": "Article",
+                    "name": "Fallback Title"
+                }
+            ]
+            </script>
+        </html>
+        """, 'html.parser')
+
+        title = self.scraper.extract_title_from_json_ld(soup_json_ld_list)
+
+        # Assert that the first matching headline is returned
+        self.assertEqual(title, "List Headline")
+
+    def test_extract_title_from_metadata_name_title(self):
+        """Test extraction of title from meta[name='title']."""
+        # Mock HTML with meta[name="title"]
+        soup_with_meta_title = BeautifulSoup("""
+        <html>
+            <head>
+                <meta name="title" content="Test Title from Metadata">
+            </head>
+            <body></body>
+        </html>
+        """, 'html.parser')
+
+        # Call the method
+        title = self.scraper.extract_title_from_metadata(soup_with_meta_title)
+
+        # Assert the title is correctly extracted
+        self.assertEqual(title, "Test Title from Metadata")
+
+    def test_extract_title_from_json_ld_invalid_json(self):
+        """Test handling of invalid JSON in JSON-LD."""
+        soup_invalid_json = BeautifulSoup("""
+        <html>
+            <script type="application/ld+json">
+            { invalid json }
+            </script>
+        </html>
+        """, 'html.parser')
+
+        with self.assertLogs(level='WARNING') as log:
+            title = self.scraper.extract_title_from_json_ld(soup_invalid_json)
+
+        # Assert that no title is returned
+        self.assertIsNone(title)
+
+        # Assert that the warning is logged
+        self.assertTrue("Failed to decode JSON-LD script." in log.output[0])
+
     def test_extract_title_from_json_ld(self):
         """Test extracting title from JSON-LD."""
         result = self.scraper.extract_title(self.soup_json_ld)
         self.assertEqual(result, "JSON-LD Article Title")
+
+    def test_extract_title_from_json_ld_single_object(self):
+        """Test extraction of title from a single JSON-LD object."""
+        soup_single_json_ld = BeautifulSoup("""
+        <html>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "NewsArticle",
+                "headline": "Single Headline"
+            }
+            </script>
+        </html>
+        """, 'html.parser')
+
+        title = self.scraper.extract_title_from_json_ld(soup_single_json_ld)
+
+        # Assert the title is correctly extracted
+        self.assertEqual(title, "Single Headline")
 
     def test_extract_title_from_metadata(self):
         """Test extracting title from metadata."""
@@ -925,6 +1161,161 @@ class TestExtractAuthorJsonLD(unittest.TestCase):
         # Assert that no author is found
         self.assertEqual(author, [])
 
+    def test_extract_author_json_ld_list_in_single_script(self):
+        """Test extraction of authors from a list of JSON objects in a single JSON-LD script."""
+        soup_list_in_script = BeautifulSoup("""
+        <html>
+        <script type="application/ld+json">
+        [
+            {
+                "@context": "http://schema.org",
+                "@type": "NewsArticle",
+                "author": {"@type": "Person", "name": "John Doe"}
+            },
+            {
+                "@context": "http://schema.org",
+                "@type": "Article",
+                "author": {"@type": "Person", "name": "Jane Smith"}
+            }
+        ]
+        </script>
+        </html>
+        """, 'html.parser')
+
+        authors = self.scraper.extract_author_json_ld(soup_list_in_script)
+
+        # Assert both authors are extracted
+        self.assertEqual(authors, ['John Doe', 'Jane Smith'])
+
+
+class TestScrapperMonitor2(unittest.TestCase):
+
+    def test_scrapper_monitor_init_with_functions(self):
+        """Test that ScrapperMonitor correctly assigns validate and clean functions."""
+
+        # Define dummy validate and clean functions
+        def dummy_validate(soup):
+            return True
+
+        def dummy_clean(soup):
+            return soup
+
+        # Initialize ScrapperMonitor with custom validate and clean functions
+        monitor = ScrapperMonitor(validate=dummy_validate, clean=dummy_clean)
+
+        # Assert that the 'validate' function is correctly assigned
+        self.assertEqual(monitor.validate, dummy_validate)
+
+        # Assert that the 'clean' function is correctly assigned
+        self.assertEqual(monitor.clean, dummy_clean)
+
+    def test_scrapper_monitor_init_with_defaults(self):
+        """Test that ScrapperMonitor initializes with None for validate and clean by default."""
+
+        # Initialize ScrapperMonitor without passing validate or clean functions
+        monitor = ScrapperMonitor()
+
+        # Assert that 'validate' is None
+        self.assertIsNone(monitor.validate)
+
+        # Assert that 'clean' is None
+        self.assertIsNone(monitor.clean)
+
+    def test_scrapper_monitor_init_with_functions(self):
+        """Test that ScrapperMonitor initializes with custom validate and clean functions."""
+
+        # Sample validate and clean functions
+        def dummy_validate(soup):
+            return True
+
+        def dummy_clean(soup):
+            return soup
+
+        # Initialize ScrapperMonitor with custom functions
+        monitor = ScrapperMonitor(validate=dummy_validate, clean=dummy_clean)
+
+        # Assert that the validate and clean functions are set correctly
+        self.assertEqual(monitor.validate, dummy_validate)
+        self.assertEqual(monitor.clean, dummy_clean)
+
+    def test_scrapper_monitor_init_with_defaults(self):
+        """Test that ScrapperMonitor initializes with default None values for validate and clean."""
+
+        # Initialize ScrapperMonitor with no functions passed (default is None)
+        monitor = ScrapperMonitor()
+
+        # Assert that validate and clean are set to None
+        self.assertIsNone(monitor.validate)
+        self.assertIsNone(monitor.clean)
+
+
+class TestScrapperMonitor3(unittest.TestCase):
+
+    def test_decorator_with_successful_validation(self):
+        """Test that the decorated function is called if validation succeeds."""
+
+        # Define the mock functions
+        def mock_validate(*args, **kwargs):
+            pass  # Simulate successful validation
+
+        def mock_function(*args, **kwargs):
+            return "Function called"
+
+        # Initialize ScrapperMonitor with the mock validate function (no clean function)
+        monitor = ScrapperMonitor(validate=mock_validate)
+
+        # Apply the decorator
+        decorated_function = monitor(mock_function)
+
+        # Call the decorated function
+        result = decorated_function()
+
+        # Assert that the function is called and returns the correct result
+        self.assertEqual(result, "Function called")
+
+    def test_decorator_with_failed_validation_and_clean(self):
+        """Test that the clean function is applied if validation fails."""
+
+        # Define the mock functions
+        def mock_validate(*args, **kwargs):
+            raise ValueError("Validation failed")
+
+        def mock_clean(*args, **kwargs):
+            pass  # Simulate cleaning (does nothing in this case)
+
+        def mock_function(*args, **kwargs):
+            return "Function called"
+
+        # Initialize ScrapperMonitor with the mock validate and clean functions
+        monitor = ScrapperMonitor(validate=mock_validate, clean=mock_clean)
+
+        # Apply the decorator
+        decorated_function = monitor(mock_function)
+
+        # Call the decorated function and assert that the exception is re-raised
+        with self.assertRaises(ValueError):
+            decorated_function()
+
+    def test_decorator_with_no_validation_or_clean(self):
+        """Test that the decorated function is called with no validate or clean functions."""
+
+        # Define the mock function
+        def mock_function(*args, **kwargs):
+            return "Function called"
+
+        # Initialize ScrapperMonitor with no validate or clean functions
+        monitor = ScrapperMonitor()
+
+        # Apply the decorator
+        decorated_function = monitor(mock_function)
+
+        # Call the decorated function
+        result = decorated_function()
+
+        # Assert that the function is called and returns the correct result
+        self.assertEqual(result, "Function called")
+
+
 class TestScrapperMonitor(unittest.TestCase):
 
     def setUp(self):
@@ -1047,7 +1438,7 @@ class TestValidateSoup(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             validate_soup(soup="This is not a BeautifulSoup object.")
 
-        self.assertTrue("Invalid soup object." in str(context.exception))
+        self.assertTrue("Invalid or empty HTML content provided.")
 
     def test_empty_soup(self):
         """Test that an empty BeautifulSoup object raises an exception."""
@@ -1055,7 +1446,7 @@ class TestValidateSoup(unittest.TestCase):
         # Call validate_soup with the empty soup object, which should raise an exception
         with self.assertRaises(ValueError) as context:
             validate_soup(soup=empty_soup)
-        self.assertTrue("Invalid soup object: None" in str(context.exception))
+        self.assertTrue("Invalid or empty HTML content provided.")
 
 class TestExtractContent(unittest.TestCase):
 
@@ -1124,6 +1515,26 @@ class TestExtractContent(unittest.TestCase):
         empty_content_soup = BeautifulSoup(empty_content_html, 'html.parser')
         result = self.scraper.extract_content(empty_content_soup)
         self.assertIsNone(result)
+
+
+class TestBeautifulSoupScraper3(unittest.TestCase):
+    @patch('requests.get')
+    def test_extract_data_network_failure(self, mock_requests_get):
+        scraper = BeautifulSoupScraper()
+        try:
+            result = scraper.extract_data("https://example.com")
+        except ValueError as e:
+            self.assertIn("Request failed (Attempt 1).", str(e))
+            self.assertIn("Request failed (Attempt 2).", str(e))
+            self.assertIn("Request failed (Attempt 3).", str(e))
+
+    @patch('requests.get')
+    def test_extract_data_network_failure_final_else(self, mock_requests_get):
+        scraper = BeautifulSoupScraper()
+        try:
+            scraper.extract_data("https://example.com")
+        except ValueError as e:
+            self.assertIn("Failed to retrieve webpage after multiple attempts.", str(e))
 
 
 if __name__ == '__main__':
