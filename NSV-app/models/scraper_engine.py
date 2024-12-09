@@ -112,6 +112,114 @@ def clean_selectors(*args, **kwargs):
         if selectors[i] != temp_sel:
             print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
 
+
+class ScrapperMonitor:
+    def __init__(self, validate=None, clean=None):
+        """
+        ScrapperMonitor will take validate and clean functions as arguments.
+        """
+        self.validate = validate
+        self.clean = clean
+
+    def __call__(self, func):
+        """
+        This allows ScrapperMonitor to be used as a decorator with the given validate and clean functions.
+        """
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # First, attempt to apply the validation
+            try:
+                if self.validate:
+                    self.validate(*args, **kwargs)  # Apply the validation
+            except Exception as e:
+                print(f"Validation failed: {e}")
+
+                if self.clean:
+                    print("Applying cleaning function...")
+                    self.clean(*args, **kwargs)  # Apply the cleaning
+
+                # Re-raise the exception after cleaning
+                raise e
+
+            # If validation passes, call the original function
+            return func(*args, **kwargs)
+
+        return wrapper
+
+def validate_url(*args, **kwargs):
+    """Validates the URL format and checks if it's accessible."""
+    print("EXECUTING VALIDATE - URL")
+    url = kwargs.get('url') or args[1]
+    url_pattern = re.compile(
+        r'^(?:http|ftp)s?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or IP
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE
+    )
+    if not re.match(url_pattern, url):
+        raise ValueError(f"Invalid URL format: {url}")
+
+    try:
+        response = requests.head(url, timeout=5)
+        if response.status_code >= 400:
+            raise ValueError(f"URL is not accessible: {url} (Status code: {response.status_code})")
+    except requests.RequestException as e:
+        logging.error(f"Failed to access URL {url}: {e}")
+        raise ValueError(f"URL check failed: {url}")
+
+# Validates the soup object before extraction
+def validate_soup(*args, **kwargs):
+    """Validates the soup object before extraction."""
+    print("EXECUTING VALIDATE - soup")
+    soup = kwargs.get('soup') or args[1]  # Assuming the second argument is soup
+    if not soup or not isinstance(soup, BeautifulSoup):
+        print(f"Invalid or empty BeautifulSoup object provided.")
+        raise ValueError("Invalid or empty HTML content provided.")
+
+# Validates the CSS selector before extraction
+def validate_selectors(*args, **kwargs):
+    """Validates the CSS selector before extraction."""
+    print("EXECUTING VALIDATE - Selectors")
+    selectors = kwargs.get('selectors') or args[2]
+    for i, sel in enumerate(selectors):
+        if not isinstance(sel, str):
+            raise ValueError(f"Invalid selector at index {i}: {sel} is not a string.")
+        cleaned_sel = sel.strip()
+        if sel != cleaned_sel:
+            print(f"Selector with leading/trailing spaces: {sel}")
+            raise ValueError(f"Selector at index {i} contains leading/trailing spaces: {sel}")
+    return selectors
+
+
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
+def clean_url(*args, **kwargs):
+    """Removes unnecessary query parameters from URLs."""
+    print("EXECUTING CLEAN - URL")
+    url = kwargs.get('url') or args[1]
+    logging.info(f"Cleaning URL: {url}")
+    parsed_url = urllib.parse.urlparse(url)
+    cleaned_url = urllib.parse.urlunparse(parsed_url._replace(query=''))
+    kwargs['url'] = cleaned_url  # Pass the cleaned URL to the next function
+    print(f"Cleaned URL: {cleaned_url}")
+
+@Aspect.log_execution
+@Aspect.measure_time
+@Aspect.handle_exceptions
+def clean_selectors(*args, **kwargs):
+    """Cleans the CSS selector before extraction."""
+    print("EXECUTING CLEAN - Selectors")
+    selectors = kwargs.get('selectors') or args[2]
+    for i, sel in enumerate(selectors):
+        temp_sel = deepcopy(sel)
+        selectors[i] = str(sel).strip()
+        if selectors[i] != temp_sel:
+            print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
+
+
 class BeautifulSoupScraper:
     """A scraper class using BeautifulSoup to extract data from web pages."""
 
@@ -142,7 +250,6 @@ class BeautifulSoupScraper:
             return None
 
         soup = BeautifulSoup(response.content, 'html.parser')
-
         title = self.extract_title(soup) or "Unknown Title"
         content = self.extract_content(soup) or "No content available"
         author = self.extract_author(soup) or "Unknown Author"
@@ -509,7 +616,6 @@ class BeautifulSoupScraper:
             authors.append(author_data.strip())
 
         return authors
-
 
 # if __name__ == "__main__":
 #     scraper = BeautifulSoupScraper()

@@ -2,8 +2,11 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import json
-from tweepy_api import TweepyScraper
-from community_notes import get_tweet_info_from_notes
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.tweepy_api import TweepyScraper
+from models.community_notes import get_tweet_info_from_notes
 import logging
 import mop
 
@@ -125,16 +128,12 @@ def get_all_tweets():
 
 @app.route('/tweets/<tweet_id>', methods=['GET'])
 def get_tweet(tweet_id):
-    """Get a single tweet by ID."""
-    try:
-        validate_tweet_id(tweet_id)  # Validează tweet_id
-    except ValueError as e:
-        logging.error(f"Invalid Tweet ID: {tweet_id}. Error: {e}")
-        return jsonify({"error": str(e)}), 400
+    print(f"Received tweet_id: {tweet_id}")  # Adaugă acest print pentru debugging
     tweet = Tweet.query.get(tweet_id)
     if not tweet:
         return jsonify({"error": "Tweet not found"}), 404
     return jsonify(tweet.to_dict()), 200
+
 
 
 @app.route('/tweets', methods=['POST'])
@@ -259,6 +258,7 @@ def update_tweet(tweet_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":

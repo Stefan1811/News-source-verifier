@@ -15,8 +15,6 @@ from tensorflow.keras.models import load_model
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../model_prep')))
 import model_config
 import mop 
-=======
-
 from models.aop_wrapper import Aspect
 
 
