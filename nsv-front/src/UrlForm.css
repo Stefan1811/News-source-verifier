@@ -1,20 +1,20 @@
-/* UrlForm.css */
 html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     font-family: Arial, sans-serif;
-  }
-  
-  .container {
+}
+
+.container {
+    margin-top: 200px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
-    align-items: flex-start; /* Aliniere verticală la început */
-    height: 100%;
-    padding-top: 200px; /* Adaugă spațiu deasupra pentru a poziționa formularul mai jos */
-  }
-  
-  form {
+    align-items: center; 
+    height: 100%; 
+}
+
+form {
     width: 50%;
     max-width: 700px;
     display: flex;
@@ -23,18 +23,19 @@ html, body {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  input {
+    margin-bottom: 20px; 
+}
+
+input {
     flex-grow: 1;
     padding: 10px;
     font-size: 16px;
     border: 1px solid #ccc;
     border-radius: 4px;
     margin-right: 8px;
-  }
-  
-  button {
+}
+
+button {
     padding: 10px 20px;
     font-size: 16px;
     color: white;
@@ -43,9 +44,37 @@ html, body {
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.3s;
-  }
-  
-  button:hover {
+}
+
+button:hover {
     background-color: #357ae8;
-  }
-  
+}
+
+.article-details {
+    width: 50%; 
+    max-width: 700px;
+    text-align: left;
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px; 
+}
+
+.article-details h2 {
+    margin-bottom: 15px;
+}
+
+.article-details p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.article-details a {
+    color: #4285f4;
+    text-decoration: none;
+}
+
+.article-details a:hover {
+    text-decoration: underline;
+}
