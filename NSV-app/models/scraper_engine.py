@@ -7,7 +7,10 @@ import logging
 import time
 import re
 import json
-from aop_wrapper import Aspect
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.aop_wrapper import Aspect
 
 
 class ScrapperMonitor:
@@ -17,7 +20,6 @@ class ScrapperMonitor:
         """
         self.validate = validate
         self.clean = clean
-
     def __call__(self, func):
         """
         This allows ScrapperMonitor to be used as a decorator with the given validate and clean functions.
@@ -57,23 +59,16 @@ def validate_url(*args, **kwargs):
     )
     if not re.match(url_pattern, url):
         raise ValueError(f"Invalid URL format: {url}")
-
-    try:
-        response = requests.head(url, timeout=5)
-        if response.status_code >= 400:
-            raise ValueError(f"URL is not accessible: {url} (Status code: {response.status_code})")
-    except requests.RequestException as e:
-        logging.error(f"Failed to access URL {url}: {e}")
-        raise ValueError(f"URL check failed: {url}")
-
-# Validates the soup object before extraction
 def validate_soup(*args, **kwargs):
     """Validates the soup object before extraction."""
     print("EXECUTING VALIDATE - soup")
-    soup = kwargs.get('soup') or args[1]  # Assuming the second argument is soup
-    if not soup or not isinstance(soup, BeautifulSoup):
-        print(f"Invalid or empty BeautifulSoup object provided.")
-        raise ValueError("Invalid or empty HTML content provided.")
+    soup = kwargs.get('soup')
+    if soup is None and len(args) >= 2:
+        soup = args[1]  # Assuming the second argument is soup
+    if soup is None:
+        raise ValueError("Invalid soup object: None")
+    if not isinstance(soup, BeautifulSoup):
+        raise ValueError(f"Invalid soup object.")
 
 # Validates the CSS selector before extraction
 def validate_selectors(*args, **kwargs):
@@ -96,7 +91,10 @@ def validate_selectors(*args, **kwargs):
 def clean_url(*args, **kwargs):
     """Removes unnecessary query parameters from URLs."""
     print("EXECUTING CLEAN - URL")
-    url = kwargs.get('url') or args[1]
+    url = kwargs.get('url')
+    if url is None and args is not None:
+        if len(args) >= 2:
+            url = args[1]  # Assuming the second argument is the URL
     logging.info(f"Cleaning URL: {url}")
     parsed_url = urllib.parse.urlparse(url)
     cleaned_url = urllib.parse.urlunparse(parsed_url._replace(query=''))
@@ -115,8 +113,6 @@ def clean_selectors(*args, **kwargs):
         selectors[i] = str(sel).strip()
         if selectors[i] != temp_sel:
             print(f"Selector cleaned: {temp_sel} -> {selectors[i]}")
-
-
 class BeautifulSoupScraper:
     """A scraper class using BeautifulSoup to extract data from web pages."""
 
@@ -140,15 +136,14 @@ class BeautifulSoupScraper:
                 if response.status_code == 200:
                     break
             except requests.RequestException as e:
-                logging.error(f"Request failed (Attempt {attempt + 1}): {e}")
+                raise ValueError(f"Request failed (Attempt {attempt + 1}).")
                 time.sleep(2)
         else:
-            logging.error("Failed to retrieve webpage after multiple attempts.")
+            raise ValueError("Failed to retrieve webpage after multiple attempts.")
             return None
 
         soup = BeautifulSoup(response.content, 'html.parser')
-
-        title = self.extract_text(soup, ['h1     ', 'title', 'div.article-title']) or "Unknown Title"
+        title = self.extract_title(soup) or "Unknown Title"
         content = self.extract_content(soup) or "No content available"
         author = self.extract_author(soup) or "Unknown Author"
         publish_date = self.extract_publish_date(soup) or "Unknown Date"
@@ -163,6 +158,73 @@ class BeautifulSoupScraper:
             "author": author,
             "publish_date": publish_date
         }
+
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
+    def extract_title(self, soup):
+        """Extract title from HTML, JSON-LD, or metadata."""
+
+        # First, try to extract the title from the article (e.g., from <h1>, <h2>, etc.)
+        title = self.extract_title_from_article(soup)
+        if title:
+            logging.debug(f"Title found in article: {title}")
+            return title
+        # If no article title found, try to extract from JSON-LD
+        title = self.extract_title_from_json_ld(soup)
+        if title:
+            logging.debug(f"Title found in JSON-LD: {title}")
+            return title
+        # If still no title, try extracting from metadata (og:title, meta[name="title"])
+        title = self.extract_title_from_metadata(soup)
+        if title:
+            logging.debug(f"Title found in metadata: {title}")
+            return title
+        # Finally, fallback to the <title> tag in HTML (usually the page title)
+        title = soup.title.string if soup.title else None
+        if title:
+            logging.debug(f"Title found in <title> tag: {title}")
+            return title
+        # If no title found, return the default fallback
+        logging.warning("No title found in any source, using default.")
+        return "Unknown Title"
+
+    def extract_title_from_article(self, soup):
+        """Try extracting the article's title from HTML (e.g., <h1>, <h2>, etc.)."""
+        title = self.extract_text(soup, ['h1', 'h2', 'div.article-title'])
+        return title
+
+    def extract_title_from_json_ld(self, soup):
+        """Extract title from JSON-LD data."""
+        json_ld_scripts = soup.find_all("script", type="application/ld+json")
+        if not json_ld_scripts:
+            return None
+
+        for script in json_ld_scripts:
+            try:
+                json_data = json.loads(script.string)
+                if isinstance(json_data, list):
+                    for item in json_data:
+                        if item.get('@type') in {"NewsArticle", "Article"}:
+                            title = item.get('headline') or item.get('name')
+                            if title:
+                                return title
+                elif isinstance(json_data, dict):
+                    if json_data.get('@type') in {"NewsArticle", "Article"}:
+                        title = json_data.get('headline') or json_data.get('name')
+                        if title:
+                            return title
+            except json.JSONDecodeError:
+                logging.warning("Failed to decode JSON-LD script.")
+        return None
+    def extract_title_from_metadata(self, soup):
+        """Extract title from metadata tags (og:title, meta[name="title"])."""
+        meta_tag = soup.find('meta', attrs={'property': 'og:title'}) or \
+                   soup.find('meta', attrs={'name': 'title'})
+        if meta_tag:
+            return meta_tag.get('content', '').strip()
+        return None
+
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -240,9 +302,8 @@ class BeautifulSoupScraper:
                         if item.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                             if 'dateModified' in item:
                                 return item['dateModified']
-                            if 'datePublished' in item:
+                            elif 'datePublished' in item:
                                 return item['datePublished']
-                # Single JSON-LD object case
                 elif isinstance(json_data, dict):
                     if json_data.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                         if 'dateModified' in json_data:
@@ -251,8 +312,6 @@ class BeautifulSoupScraper:
                             return json_data['datePublished']
             except json.JSONDecodeError as e:
                 logging.warning(f"Failed to decode JSON-LD script: {e}")
-
-        logging.info("No date information found in JSON-LD scripts.")
         return None
 
     @Aspect.log_execution
@@ -288,24 +347,11 @@ class BeautifulSoupScraper:
                 # Extragem doar paragrafele din acest element
                 paragraphs = element.find_all('p')
                 filtered_paragraphs = [
-                    p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50
-                ]
-
-                # Dacă avem paragrafe semnificative, le returnăm
+                    p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50]
                 if filtered_paragraphs:
                     return "\n".join(filtered_paragraphs)
-
             # Dacă nu am găsit conținutul dorit, returnăm None
         return None
-
-    @Aspect.log_execution
-    @Aspect.measure_time
-    @Aspect.handle_exceptions
-    def clean_text(self, content):
-        """Cleans HTML content by removing unwanted tags."""
-        for tag in content(['script', 'style', 'form', 'iframe']):
-            tag.decompose()
-        return content.get_text(separator="\n", strip=True)
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -327,17 +373,18 @@ class BeautifulSoupScraper:
         author = None
         for method_name, method in extraction_methods:
             if author is None:
+                print(f"Trying extraction method: {method_name}")  # Debug print
                 author = method(soup)
+                print(f"Author found using {method_name}: {author}")  # Debug print
             if author:
                 if isinstance(author, list):
                     author_str = ', '.join(author)
-                    logging.debug(f"Authors extracted using {method_name}: {author_str}")
+                    print(f"Authors extracted: {author_str}")  # Debug print
                     return author_str
                 elif isinstance(author, str):
-                    logging.debug(f"Author extracted using {method_name}: {author}")
+                    print(f"Author extracted: {author}")  # Debug print
                     return author
-
-        logging.info("Author not found using any predefined methods.")
+        print("No author found.")  # Debug print
         return None
 
     @Aspect.log_execution
@@ -345,11 +392,19 @@ class BeautifulSoupScraper:
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_author_metadata(self, soup):
-        article_tags = soup.find_all('meta', attrs={'property': re.compile(r'.*author.*', re.I)})
+        """Extract the author from metadata tags."""
+        article_tags = soup.find_all('meta', attrs={'name': re.compile(r'.*author.*', re.I)})
+
+        # Debugging: Print all meta tags found
+        print(f"Found {len(article_tags)} meta tags with author information.")
+        for tag in article_tags:
+            print(f"Found meta tag: {tag}")
+
         for tag in article_tags:
             author = tag.get('content', '').strip()
             if author:
                 return author
+        return None
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -387,39 +442,39 @@ class BeautifulSoupScraper:
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_author_json_ld(self, soup):
-        """Extrage autorul din JSON-LD."""
+        """Extract all authors from JSON-LD."""
         json_ld_scripts = soup.find_all("script", type="application/ld+json")
 
         if not json_ld_scripts:
             return []
 
+        authors = []
         for script in json_ld_scripts:
             try:
                 json_data = json.loads(script.string)
                 if isinstance(json_data, list):
-                    json_data = next((item for item in json_data if "@type" in item), {})
-
-                if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
-                    author_data = json_data.get("author", None)
-                    authors = self.process_author(author_data)
-                    if authors:
-                        return authors
-
+                    # In case of a list of JSON objects, iterate through each item
+                    for item in json_data:
+                        if item.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
+                            author_data = item.get("author", None)
+                            authors.extend(self.process_author(author_data))  # Add authors to the list
+                elif isinstance(json_data, dict):  # Single JSON-LD object
+                    if json_data.get("@type") in {"NewsArticle", "ReportageNewsArticle", "Article"}:
+                        author_data = json_data.get("author", None)
+                        authors.extend(self.process_author(author_data))  # Add authors to the list
                 if '@graph' in json_data:
+                    # If @graph exists in the JSON-LD, process it as well
                     graph_items = json_data['@graph']
                     for item in graph_items:
                         if item.get('@type') in {"NewsArticle", "ReportageNewsArticle", "Article"}:
                             author_data = item.get('author', None)
-                            if author_data:
-                                authors = self.process_author(author_data)
-                                if authors:
-                                    return authors
+                            authors.extend(self.process_author(author_data))  # Add authors to the list
 
             except json.JSONDecodeError:
                 logging.error("Cannot parse JSON-LD", exc_info=True)
 
-        logging.warning("No author in JSON-LD found.")
-        return []
+        logging.warning("Authors extracted from JSON-LD: %s", authors)
+        return authors
 
     @staticmethod
     @Aspect.log_execution
@@ -442,25 +497,24 @@ class BeautifulSoupScraper:
 
         return authors
 
-
-if __name__ == "__main__":
-    scraper = BeautifulSoupScraper()
-    test_url = ("https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa"
-                "-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621")
-    test_url2 = "https://www.bbc.com/news/articles/cgk18pdnxmmo"
-    test_url3 = ("https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din"
-                 "-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709")
-    test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
-    test_url5 = ("https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in"
-                 "-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623")
-    test_url_random = "https://www.jpost.com/breaking-news/article-761462"
-    article_data = scraper.extract_data(test_url_random)
-
-    if article_data:
-        print(f"URL: {article_data['url']}")
-        print(f"Title: {article_data['title']}")
-        print(f"Content: {article_data['content']}")
-        print(f"Author: {article_data['author']}")
-        print(f"Publish Date: {article_data['publish_date']}")
-    else:
-        print("Failed to extract data from the URL.")
+# if __name__ == "__main__":
+#     scraper = BeautifulSoupScraper()
+#     test_url = ("https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa"
+#                 "-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621")
+#     test_url2 = "https://www.bbc.com/news/articles/cgk18pdnxmmo"
+#     test_url3 = ("https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din"
+#                  "-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709")
+#     test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
+#     test_url5 = ("https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in"
+#                  "-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623")
+#     test_url_random = "https://www.jpost.com/breaking-news/article-761462"
+#     article_data = scraper.extract_data(test_url4)
+#     print(article_data)
+#     if article_data:
+#         print(f"URL: {article_data['url']}")
+#         print(f"Title: {article_data['title']}")
+#         print(f"Content: {article_data['content']}")
+#         print(f"Author: {article_data['author']}")
+#         print(f"Publish Date: {article_data['publish_date']}")
+#     else:
+#         print("Failed to extract data from the URL.")
