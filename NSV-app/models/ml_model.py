@@ -11,6 +11,7 @@ import os
 from typing import Callable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+
 from nltk.corpus import stopwords
 import re
 from models.ml_model_aop import Aspect
@@ -187,6 +188,10 @@ def model_metrics_monitor() -> Callable:
     return decorator
 import model_config
 import mop 
+=======
+
+from models.aop_wrapper import Aspect
+
 
 from models.aop_wrapper import Aspect
 
