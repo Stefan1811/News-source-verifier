@@ -139,3 +139,51 @@
 2024-11-29 19:16:42,515 - INFO - verify_article took 0.0000 seconds
 2024-11-29 19:16:42,515 - INFO - Executing User.view_verification_result with arguments: 123
 2024-11-29 19:16:42,515 - INFO - view_verification_result took 0.0000 seconds
+2025-01-10 19:08:17,734 - INFO - Executing User.__init__ with arguments: 1, alice, alice@email.org
+2025-01-10 19:08:17,734 - ERROR - Exception in __init__: 'User' object has no attribute 'log_method_call'
+2025-01-10 19:08:17,734 - INFO - __init__ took 0.0000 seconds
+2025-01-10 19:08:17,734 - INFO - Executing User.get_user_info with arguments: 
+2025-01-10 19:08:17,734 - ERROR - Exception in get_user_info: 'User' object has no attribute 'user_id'
+2025-01-10 19:08:17,734 - INFO - get_user_info took 0.0000 seconds
+2025-01-10 19:08:17,735 - INFO - Executing User.verify_article with arguments: {'id': 123, 'title': 'Example Article', 'content': 'This is an example article.'}
+2025-01-10 19:08:17,735 - INFO - verify_article took 0.0000 seconds
+2025-01-10 19:08:17,735 - INFO - Executing User.view_verification_result with arguments: 123
+2025-01-10 19:08:17,735 - INFO - view_verification_result took 0.0000 seconds
+2025-01-10 19:08:50,442 - INFO - Executing Admin.__init__ with arguments: 1, admin, test@email.org
+2025-01-10 19:08:50,442 - INFO - Executing Admin.__init__ with arguments: 1, admin, test@email.org
+2025-01-10 19:08:50,442 - ERROR - Exception in __init__: 'Admin' object has no attribute 'log_method_call'
+2025-01-10 19:08:50,442 - INFO - __init__ took 0.0000 seconds
+2025-01-10 19:08:50,442 - INFO - __init__ took 0.0000 seconds
+2025-01-10 19:08:50,442 - INFO - Executing Admin.manage_users with arguments: add, username=user1, email=user@email.org
+2025-01-10 19:08:50,442 - INFO - manage_users took 0.0000 seconds
+2025-01-10 19:08:50,442 - INFO - Executing Admin.manage_users with arguments: invalid_action, username=user1, email=user@email.org
+2025-01-10 19:08:50,442 - INFO - manage_users took 0.0000 seconds
+2025-01-10 19:08:50,442 - INFO - Executing Admin.view_all_verifications with arguments: 
+2025-01-10 19:08:50,442 - INFO - view_all_verifications took 0.0000 seconds
+2025-01-10 19:08:50,444 - INFO - Executing Admin.edit_trustscore_parameters with arguments: {'param1': 0.5, 'param2': 0.3}
+2025-01-10 19:08:50,444 - INFO - edit_trustscore_parameters took 0.0000 seconds
+2025-01-10 19:22:41,934 - INFO - Executing Admin.__init__ with arguments: 1, admin, test@email.org
+2025-01-10 19:22:41,934 - ERROR - Exception in __init__: 'Admin' object has no attribute 'log_method_call'
+2025-01-10 19:22:41,934 - INFO - __init__ took 0.0000 seconds
+2025-01-10 19:22:41,934 - INFO - Executing Admin.manage_users with arguments: add, username=user1, email=user@email.org
+2025-01-10 19:22:41,934 - INFO - manage_users took 0.0000 seconds
+2025-01-10 19:22:41,935 - INFO - Executing Admin.manage_users with arguments: invalid_action, username=user1, email=user@email.org
+2025-01-10 19:22:41,935 - INFO - manage_users took 0.0000 seconds
+2025-01-10 19:22:41,935 - INFO - Executing Admin.view_all_verifications with arguments: 
+2025-01-10 19:22:41,935 - INFO - view_all_verifications took 0.0000 seconds
+2025-01-10 19:22:41,935 - INFO - Executing Admin.edit_trustscore_parameters with arguments: {'param1': 0.5, 'param2': 0.3}
+2025-01-10 19:22:41,935 - INFO - edit_trustscore_parameters took 0.0000 seconds
+2025-01-10 22:41:07,908 - INFO - Executing User.get_user_info with arguments: 
+2025-01-10 22:41:07,908 - INFO - get_user_info took 0.0000 seconds
+2025-01-10 22:41:07,908 - INFO - Executing User.verify_article with arguments: {'id': 123, 'title': 'Example Article', 'content': 'This is an example article.'}
+2025-01-10 22:41:07,915 - INFO - verify_article took 0.0000 seconds
+2025-01-10 22:41:07,915 - INFO - Executing User.view_verification_result with arguments: 123
+2025-01-10 22:41:07,915 - INFO - view_verification_result took 0.0000 seconds
+2025-01-10 22:41:11,037 - INFO - Executing Admin.manage_users with arguments: add, username=user1, email=user@email.org
+2025-01-10 22:41:11,037 - INFO - manage_users took 0.0000 seconds
+2025-01-10 22:41:11,037 - INFO - Executing Admin.manage_users with arguments: invalid_action, username=user1, email=user@email.org
+2025-01-10 22:41:11,037 - INFO - manage_users took 0.0000 seconds
+2025-01-10 22:41:11,037 - INFO - Executing Admin.view_all_verifications with arguments: 
+2025-01-10 22:41:11,037 - INFO - view_all_verifications took 0.0000 seconds
+2025-01-10 22:41:11,037 - INFO - Executing Admin.edit_trustscore_parameters with arguments: {'param1': 0.5, 'param2': 0.3}
+2025-01-10 22:41:11,037 - INFO - edit_trustscore_parameters took 0.0000 seconds
