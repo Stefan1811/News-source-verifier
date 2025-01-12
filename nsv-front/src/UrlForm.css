@@ -6,7 +6,7 @@ html, body {
 }
 
 .container {
-    margin-top: 200px;
+    margin-top: 150px; /* Ajustează conform necesităților pentru a muta bara mai sus */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -35,7 +35,7 @@ input {
     margin-right: 8px;
 }
 
-button {
+.submit-button {
     padding: 10px 20px;
     font-size: 16px;
     color: white;
@@ -44,11 +44,12 @@ button {
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.3s;
-}
-
-button:hover {
+  }
+  
+  .submit-button:hover {
     background-color: #357ae8;
-}
+  }
+  
 
 .article-details {
     width: 50%; 
@@ -78,3 +79,216 @@ button:hover {
 .article-details a:hover {
     text-decoration: underline;
 }
+.recent-articles {
+    width: 100%; /* Aceeași lățime ca și formularul */
+    max-width: 710px; /* Pentru a menține consistența cu formularul */
+}
+
+
+.recent-article {
+    margin-left: -12px;
+    display: flex;
+    justify-content: space-between; /* Asigură alinierea elementelor pe orizontală */
+    align-items: center; /* Aliniază elementele pe verticală în centru */
+    background-color: #fff;
+    padding: 15px;
+    margin-top: 10px;
+    width: 100%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    text-align: left;
+  }
+  
+  .article-content {
+    flex-grow: 1; /* Permite titlului să ocupe tot spațiul disponibil, împingând iconul în dreapta */
+  }
+  
+  .fas.fa-external-link-alt {
+    margin-left: 10px; /* Adaugă un spațiu între titlu și icon */
+    color: #4285f4; /* Schimbă culoarea iconului */
+    cursor: pointer;
+  }
+  
+  .recent-article:hover {
+    background-color: #f0f0f0;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+  
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 20px 50px; /* Modifică padding-ul pentru a include 40px pe partea laterală */
+    border-radius: 8px;
+    width: 70%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+  }
+  
+  
+  .modal-content h2 {
+    color: #333;
+  }
+  .modal-content a{
+    top: 25px;
+    color: #4285f4;
+    text-decoration: none;
+  }
+  
+  .modal-content p {
+    line-height: 1.6;
+    color: #666;
+  }
+  
+  .article-content{
+    text-align: justify;
+    text-justify: inter-word; /* Asigură o justificare mai uniformă a textului */
+    margin: 0; /* Elimină marginile pentru a nu avea spațiu între paragrafe */
+    padding: 20px; /* Adaugă padding pentru a separa textul de margini */
+    background-color: #fff; /* Fundal deschis pentru a evidenția paragrafele */
+    border-radius: 8px; /* Colțuri rotunjite */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Shadow subtil */
+    margin-bottom: 10px; /* Spațiu între paragrafe */
+  }
+  .article-content p {
+    text-align: justify;
+    text-justify: inter-word; /* Asigură o justificare mai uniformă a textului */
+    margin: 0; /* Elimină marginile pentru a nu avea spațiu între paragrafe */
+    padding: 0; /* Asigură-te că nu există padding care să adauge spațiu suplimentar */
+  }
+  
+  
+  .close-button {
+    position: absolute;
+    top: 43px;
+    right: 25px;
+    background: transparent;
+    border: none;
+    color: #ccc; /* Sau orice culoare se potrivește cu designul tău */
+    cursor: pointer;
+    font-size: 24px; /* Ajustează dimensiunea iconului după preferințe */
+  }
+  
+  .close-button:hover {
+    color: #f44336; /* Schimbă culoarea la hover pentru feedback vizual */
+  }
+  .info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Distribuie spațiul între elemente */
+    background: #fff; /* Fundal ușor */
+    border-radius: 8px; /* Colțuri rotunjite */
+    margin-bottom: 20px; /* Spațiu între rânduri */
+    margin-right: 40px;
+  }
+  
+  .label {
+    flex: 0 0 30%; /* Fiecare element ocupă 30% din lățime */
+    display: flex;
+    align-items: center; /* Aliniază iconița și textul pe verticală */
+    justify-content: flex-start; /* Alinează textul spre stânga */
+    padding: 20px; /* Spațiu intern */
+    background: #ffffff; /* Fundal alb pentru fiecare etichetă */
+    border-radius: 5px; /* Colțuri rotunjite pentru fiecare etichetă */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Umbră subtilă pentru fiecare etichetă */
+    margin-right: 10px; /* Spațiu între etichete */
+  }
+  
+  .label:last-child {
+    margin-right: 0; /* Elimină marginea dreaptă pentru ultima etichetă */
+  }
+  
+  .label i {
+    margin-right: 8px; /* Spațiu între iconiță și text */
+    color: #4285f4; /* Accent pe iconiță */
+  }
+  
+  .label span {
+    font-size: 18px; /* Dimensiunea textului */
+    color: #333; /* Culoare text */
+    font-weight: 500; /* Greutate text */
+  }
+  .custom-line {
+    border: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.1); /* Culoare similară cu cea din imagine */
+    margin: 10px 0; /* Spațiu deasupra și dedesubtul liniei */
+    width: 100%; /* Lățime completă */
+    margin-bottom: 20px;;
+  }
+  
+ 
+  
+  .details-popup {
+    position: absolute; /* Poziționează dropdown-ul peste content */
+    z-index: 1000;
+    top: 100%; /* Sub etichetă */
+    left: 0;
+    background-color: #fff;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    width: 300px; /* Lățimea dropdown-ului */
+  }
+  
+  .label {
+    flex: 0 0 30%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px; /* Ajustează padding-ul */
+    background: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-right: 10px;
+    position: relative; /* Necesită poziționare relativă */
+    cursor: pointer;
+  }
+  
+  .label i {
+    margin-right: 8px;
+    color: #4285f4;
+  }
+  
+  .label span {
+    font-size: 18px;
+    color: #333;
+    font-weight: 500;
+  }
+  
+  .details-popup p {
+    font-size: 14px;
+    color: #555;
+    margin: 5px 0; /* Ajustează spațiul între paragrafe */
+  }
+  .details-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .details-row i {
+    margin-right: 8px;
+    color: #808080;
+  }
+  
+  .details-row strong {
+    margin-right: 5px;
+  }
+  
+  
+  
+  

@@ -2,24 +2,29 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+
+from sqlalchemy import desc
+
 from aop_wrapper import Aspect
 import re
 import sys
 import mop
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
 from tensorflow.keras.models import load_model
 from nltk.corpus import stopwords
-from flask_cors import CORS
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from model_prep.model_testing import cleanText, predict_news
 
 
-app = Flask(__name__)
-CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_dWN9U8tAIxdxc5b-ByF@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -210,6 +215,13 @@ def get_all_articles():
     """Get all articles."""
     articles = Article.query.all()
     return jsonify([article.to_dict() for article in articles]), 200
+
+@app.route('/latest-articles', methods=['GET'])
+def get_latest_articles():
+    # Selectăm ultimele 5 articole ordonate descrescător după created_at
+    latest_articles = Article.query.order_by(desc(Article.created_at)).limit(5).all()
+    articles_list = [article.to_dict() for article in latest_articles]
+    return jsonify(articles_list), 200
 
 @app.route('/articles/<int:article_id>', methods=['GET'])
 def get_article(article_id):
