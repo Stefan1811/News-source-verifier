@@ -163,36 +163,45 @@ class BeautifulSoupScraper:
     @Aspect.measure_time
     @Aspect.handle_exceptions
     def extract_title(self, soup):
-        """Extract title from HTML, JSON-LD, or metadata."""
+        """
+        Extracts the title using various strategies in a prioritized order.
+        """
+        return self._try_extraction_methods(
+            "Title", soup,
+            [
+                ('HTML <title> tag', self.extract_title_from_article),
+                ('JSON-LD', self.extract_title_from_json_ld),
+                ('metadata', self.extract_title_from_metadata)
+            ],
+            fallback="Unknown Title"
+        )
 
-        # First, try to extract the title from the article (e.g., from <h1>, <h2>, etc.)
-        title = self.extract_title_from_article(soup)
-        if title:
-            logging.debug(f"Title found in article: {title}")
-            return title
-        # If no article title found, try to extract from JSON-LD
-        title = self.extract_title_from_json_ld(soup)
-        if title:
-            logging.debug(f"Title found in JSON-LD: {title}")
-            return title
-        # If still no title, try extracting from metadata (og:title, meta[name="title"])
-        title = self.extract_title_from_metadata(soup)
-        if title:
-            logging.debug(f"Title found in metadata: {title}")
-            return title
-        # Finally, fallback to the <title> tag in HTML (usually the page title)
-        title = soup.title.string if soup.title else None
-        if title:
-            logging.debug(f"Title found in <title> tag: {title}")
-            return title
-        # If no title found, return the default fallback
-        logging.warning("No title found in any source, using default.")
-        return "Unknown Title"
+    def _try_extraction_methods(self, prop,soup, methods, fallback=None):
+        """Iterates through extraction methods and returns the first successful result."""
+        for method_name, method in methods:
+            logging.debug(f"Trying extraction method: {method_name}")
+            result = method(soup)
+            if result:
+                logging.debug(f"Title found using {method_name}: {result}")
+                return result
+        logging.warning("No title found, using fallback.")
+        return fallback
+
+    def extract_text_by_selectors(self, soup, selectors):
+        """Helper method to extract text from the page based on multiple CSS selectors."""
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                # If it's a meta tag, get the 'content' attribute
+                if element.name == 'meta':
+                    return element.get('content', '').strip()
+                return element.get_text(strip=True)
+        return None
 
     def extract_title_from_article(self, soup):
-        """Try extracting the article's title from HTML (e.g., <h1>, <h2>, etc.)."""
-        title = self.extract_text(soup, ['h1', 'h2', 'div.article-title'])
-        return title
+        """Extracts the article's title from HTML (e.g., <h1>, <h2>, etc.)."""
+        selectors = ['h1', 'h2', 'div.article-title']
+        return self.extract_text_by_selectors(soup, selectors)
 
     def extract_title_from_json_ld(self, soup):
         """Extract title from JSON-LD data."""
@@ -217,13 +226,18 @@ class BeautifulSoupScraper:
             except json.JSONDecodeError:
                 logging.warning("Failed to decode JSON-LD script.")
         return None
-    def extract_title_from_metadata(self, soup):
-        """Extract title from metadata tags (og:title, meta[name="title"])."""
-        meta_tag = soup.find('meta', attrs={'property': 'og:title'}) or \
-                   soup.find('meta', attrs={'name': 'title'})
+
+    def extract_metadata_content(self, soup, attribute, name=None):
+        """Extract content from a meta tag by property or name attribute."""
+        meta_tag = soup.find('meta', attrs={'property': attribute}) or \
+                   soup.find('meta', attrs={'name': name})
         if meta_tag:
             return meta_tag.get('content', '').strip()
         return None
+
+    def extract_title_from_metadata(self, soup):
+        """Extract title from metadata tags (og:title, meta[name="title"])."""
+        return self.extract_metadata_content(soup, 'og:title', 'title')
 
 
     @Aspect.log_execution
@@ -244,40 +258,38 @@ class BeautifulSoupScraper:
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_publish_date(self, soup):
-        """Extracts the publishing date of the article from the HTML content."""
-        return (
-                self.extract_published_date_json_ld(soup) or
-                self.extract_published_date_metadata(soup) or
-                self.extract_published_date_html(soup) or
-                self.extract_published_date_regex(soup)
+        """
+        Extracts the publishing date of the article using various strategies.
+        """
+        return self._try_extraction_methods(
+            "Publish Date", soup,
+            [
+                ('JSON-LD', self.extract_published_date_json_ld),
+                ('metadata', self.extract_published_date_metadata),
+                ('HTML selectors', self.extract_published_date_html),
+                ('regex patterns', self.extract_published_date_regex)
+            ]
         )
-
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_metadata(self, soup):
         """Extract the published date from metadata tags."""
-        date_tag = soup.find('meta', attrs={'property': 'article:published_time'})
-        if date_tag:
-            return date_tag.get('content', '').strip()
-        return None
+        return self.extract_metadata_content(soup, 'article:published_time')
 
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_published_date_html(self, soup):
-        """Extract the published date from HTML selectors."""
-        date_selectors = [
-            'time.publish-date   ', 'span.date', 'div.pub-date',
-            'meta[property="article:published_time"]', 'meta[name="publish-date"]', 'meta[name="dcterms.modified"]'
+        """Extracts the published date from HTML selectors."""
+        selectors = [
+            'time.publish-date', 'span.date', 'div.pub-date',
+            'meta[property="article:published_time"]', 'meta[name="publish-date"]',
+            'meta[name="dcterms.modified"]'
         ]
-        for selector in date_selectors:
-            element = soup.select_one(selector)
-            if element:
-                return element.get_text(strip=True) if element.name != 'meta' else element.get('content', '').strip()
-        return None
+        return self.extract_text_by_selectors(soup, selectors)
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -321,8 +333,12 @@ class BeautifulSoupScraper:
     def extract_published_date_regex(self, soup):
         """Extract the published date using regex patterns."""
         date_patterns = [re.compile(r'Published on\s+(\w+\s\d{1,2},\s\d{4})')]
+        return self.extract_text_by_regex(soup, date_patterns)
+
+    def extract_text_by_regex(self, soup, patterns):
+        """Generalized method to extract text using regex patterns."""
         text = soup.get_text(separator=' ', strip=True)
-        for pattern in date_patterns:
+        for pattern in patterns:
             match = pattern.search(text)
             if match:
                 return match.group(1)
@@ -359,32 +375,26 @@ class BeautifulSoupScraper:
     @ScrapperMonitor(validate=validate_soup)
     def extract_author(self, soup):
         """
-        Attempts to extract the author's name using different strategies:
-        JSON-LD metadata, HTML selectors, or byline patterns, in that order.
+        Extracts the author's name using different strategies.
         Returns authors as a comma-separated string if multiple authors are found.
         """
-        extraction_methods = [
-            ('JSON-LD', self.extract_author_json_ld),
-            ('metadata', self.extract_author_metadata),
-            ('HTML selectors', self.extract_author_html),
-            ('regex patterns', self.extract_author_regex)
-        ]
+        author = self._try_extraction_methods(
+            "Author", soup,
+            [
+                ('JSON-LD', self.extract_author_json_ld),
+                ('metadata', self.extract_author_metadata),
+                ('HTML selectors', self.extract_author_html),
+                ('regex patterns', self.extract_author_regex)
+            ]
+        )
+        return self._format_authors(author)
 
-        author = None
-        for method_name, method in extraction_methods:
-            if author is None:
-                print(f"Trying extraction method: {method_name}")  # Debug print
-                author = method(soup)
-                print(f"Author found using {method_name}: {author}")  # Debug print
-            if author:
-                if isinstance(author, list):
-                    author_str = ', '.join(author)
-                    print(f"Authors extracted: {author_str}")  # Debug print
-                    return author_str
-                elif isinstance(author, str):
-                    print(f"Author extracted: {author}")  # Debug print
-                    return author
-        print("No author found.")  # Debug print
+    def _format_authors(self, author):
+        """Formats the extracted author(s) into a comma-separated string."""
+        if isinstance(author, list):
+            return ', '.join(author)
+        if isinstance(author, str):
+            return author
         return None
 
     @Aspect.log_execution
@@ -397,8 +407,6 @@ class BeautifulSoupScraper:
 
         # Debugging: Print all meta tags found
         print(f"Found {len(article_tags)} meta tags with author information.")
-        for tag in article_tags:
-            print(f"Found meta tag: {tag}")
 
         for tag in article_tags:
             author = tag.get('content', '').strip()
@@ -411,31 +419,25 @@ class BeautifulSoupScraper:
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_author_html(self, soup):
-        author_selectors = [
+        """Extracts the author from HTML selectors."""
+        selectors = [
             'span.author', 'div.author-name', 'p.byline',
             'a[rel="author"]', 'meta[name="author"]'
         ]
-        for selector in author_selectors:
-            element = soup.select_one(selector)
-            if element:
-                if element.name == 'meta':
-                    return element.get('content', '').strip()
-                return element.get_text(strip=True)
+        return self.extract_text_by_selectors(soup, selectors)
 
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @ScrapperMonitor(validate=validate_soup)
     def extract_author_regex(self, soup):
+        """Extract the author using regex patterns."""
         byline_patterns = [
             re.compile(r'By\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)'),
             re.compile(r'Written by\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)')
         ]
-        text = soup.get_text(separator=' ', strip=True)
-        for pattern in byline_patterns:
-            match = pattern.search(text)
-            if match:
-                return match.group(1)
+        return self.extract_text_by_regex(soup, byline_patterns)
+
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -481,40 +483,40 @@ class BeautifulSoupScraper:
     @Aspect.measure_time
     @Aspect.handle_exceptions
     def process_author(author_data):
-        """Procesează datele autorului și le returnează sub formă de listă."""
-        authors = []
+        """Processes author data and returns it as a list of names."""
+
+        def extract_name(data):
+            if isinstance(data, dict) and "name" in data:
+                return data["name"].strip()
+            if isinstance(data, str):
+                return data.strip()
+            return None
 
         if isinstance(author_data, list):
-            for author in author_data:
-                if isinstance(author, dict) and "name" in author:
-                    authors.append(author["name"].strip())
-                elif isinstance(author, str):
-                    authors.append(author.strip())
-        elif isinstance(author_data, dict) and "name" in author_data:
-            authors.append(author_data["name"].strip())
-        elif isinstance(author_data, str):
-            authors.append(author_data.strip())
+            return [extract_name(author) for author in author_data if extract_name(author) is not None]
 
-        return authors
+        name = extract_name(author_data)
+        return [name] if name else []
 
-# if __name__ == "__main__":
-#     scraper = BeautifulSoupScraper()
-#     test_url = ("https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa"
-#                 "-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621")
-#     test_url2 = "https://www.bbc.com/news/articles/cgk18pdnxmmo"
-#     test_url3 = ("https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din"
-#                  "-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709")
-#     test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
-#     test_url5 = ("https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in"
-#                  "-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623")
-#     test_url_random = "https://www.jpost.com/breaking-news/article-761462"
-#     article_data = scraper.extract_data(test_url4)
-#     print(article_data)
-#     if article_data:
-#         print(f"URL: {article_data['url']}")
-#         print(f"Title: {article_data['title']}")
-#         print(f"Content: {article_data['content']}")
-#         print(f"Author: {article_data['author']}")
-#         print(f"Publish Date: {article_data['publish_date']}")
-#     else:
-#         print("Failed to extract data from the URL.")
+
+if __name__ == "__main__":
+    scraper = BeautifulSoupScraper()
+    test_url = ("https://www.digi24.ro/stiri/actualitate/politica/marcel-ciolacu-anunta-ca-si-a-dat-demisia-dupa"
+                "-rezultatul-din-alegeri-sedinta-azi-la-psd-3020621")
+    test_url2 = "https://www.bbc.com/news/articles/cgk18pdnxmmo"
+    test_url3 = ("https://www.digi24.ro/stiri/economie/amiralul-rob-bauer-avertisment-pentru-oamenii-de-afaceri-din"
+                 "-tarile-nato-companiile-sa-fie-pregatite-pentru-un-scenariu-de-razboi-3020709")
+    test_url4 = "https://thepeoplesvoice.tv/npr-ceo-truth-and-facts-are-inherently-racist/"
+    test_url5 = ("https://www.digi24.ro/alegeri-prezidentiale-2024/alegeri-prezidentiale-2024-calin-georgescu-16-in"
+                 "-exit-poll-tot-ce-s-a-intamplat-astazi-a-fost-o-trezire-uluitoare-a-constiintei-3019623")
+    test_url_random = "https://www.jpost.com/breaking-news/article-761462"
+    article_data = scraper.extract_data(test_url4)
+    print(article_data)
+    if article_data:
+        print(f"URL: {article_data['url']}")
+        print(f"Title: {article_data['title']}")
+        print(f"Content: {article_data['content']}")
+        print(f"Author: {article_data['author']}")
+        print(f"Publish Date: {article_data['publish_date']}")
+    else:
+        print("Failed to extract data from the URL.")
