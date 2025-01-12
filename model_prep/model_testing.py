@@ -1,9 +1,11 @@
 from tensorflow.keras.models import load_model
 import pandas as pd
 import numpy as np
+import sys
 import itertools
 import seaborn as sns
 import nltk, re, string
+import os 
 from string import punctuation
 from nltk.corpus import stopwords
 from sklearn import metrics
@@ -15,9 +17,9 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 import model_config
-import os 
+
 
 
 model = load_model('model_prep/fake_news_model.h5')
@@ -44,11 +46,11 @@ def predict_news(text):
     
     df_test['prediction'] = prediction
     df_test["test_sent"] = df_test["test_sent"].apply(cleanText)
-    df_test['prediction'] = df_test['prediction'].apply(lambda x: "Fake" if x >= 0.5 else "Real")
+    #df_test['prediction'] = df_test['prediction'].apply(lambda x: "Real" if x >= 0.5 else "Fake")
     
-    return df_test
+    return df_test['prediction']
 
-print(predict_news(test_data))
+#print(predict_news(test_data))
     
     
     
