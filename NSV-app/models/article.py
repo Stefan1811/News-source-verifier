@@ -6,14 +6,26 @@ from aop_wrapper import Aspect
 import re
 import sys
 import mop
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
+from tensorflow.keras.models import load_model
+from nltk.corpus import stopwords
+from flask_cors import CORS
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from model_prep.model_testing import cleanText, predict_news
+
 
 app = Flask(__name__)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_dWN9U8tAIxdxc5b-ByF@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+model = load_model('model_prep/fake_news_model.h5')
+stop = stopwords.words('english')
 
 @mop.monitor(
     lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'] and
@@ -282,6 +294,16 @@ def scrape_and_create_article():
         article.analyze_sentiment()
         article.check_consistency()
 
+        article_content_no_paragraphs = article.content.replace('\n', ' ').replace('\r', ' ')
+        print(f"Content without paragraphs: {article_content_no_paragraphs}")
+        
+        # Preprocess the article content for prediction
+        prediction_data = predict_news([article_content_no_paragraphs])
+        print(f"Prediction data: {prediction_data}")
+        article.ml_model_prediction = float(prediction_data[0])
+        
+        article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency  
+        
         db.session.add(article)
         db.session.commit()
 
