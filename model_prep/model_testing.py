@@ -44,7 +44,7 @@ def predict_news(text):
     
     df_test['prediction'] = prediction
     df_test["test_sent"] = df_test["test_sent"].apply(cleanText)
-    df_test['prediction'] = df_test['prediction'].apply(lambda x: "Fake" if x >= 0.5 else "Real")
+    df_test['prediction'] = df_test['prediction'].apply(lambda x: "Real" if x >= 0.5 else "Fake")
     
     return df_test
 
