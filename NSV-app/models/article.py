@@ -2,12 +2,17 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+
+from sqlalchemy import desc
+
 from aop_wrapper import Aspect
 import re
 import sys
 import mop
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -198,6 +203,13 @@ def get_all_articles():
     """Get all articles."""
     articles = Article.query.all()
     return jsonify([article.to_dict() for article in articles]), 200
+
+@app.route('/latest-articles', methods=['GET'])
+def get_latest_articles():
+    # Selectăm ultimele 5 articole ordonate descrescător după created_at
+    latest_articles = Article.query.order_by(desc(Article.created_at)).limit(5).all()
+    articles_list = [article.to_dict() for article in latest_articles]
+    return jsonify(articles_list), 200
 
 @app.route('/articles/<int:article_id>', methods=['GET'])
 def get_article(article_id):
