@@ -25,6 +25,9 @@ from nltk.corpus import stopwords
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from model_prep.model_testing import cleanText, predict_news
+from nlp_analyzer import KeywordExtractor
+
+keyword_extractor = KeywordExtractor
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -157,14 +160,26 @@ class Article(db.Model):
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @log_method_call
-    def analyze_sentiment(self):
-        """
-        Analyzes the sentiment of the article's content.
-        - Sentiment score will be used as a factor in the trust score calculation.
-        """
-        # Use TextBlob to perform sentiment analysis
+
+    def analyze_sentiment(self, url):
+
+
+        result = keyword_extractor.process_article_and_keywords(url)  # VADER score (-1 to 1)
+
+        print(result)
+
+        result_normalized = (result + 1) / 2  # Converts -1 to 1 range into 0 to 1
+
         blob = TextBlob(self.content)
-        self.sentiment_subjectivity = blob.sentiment.subjectivity
+
+        blob_sentiment = blob.sentiment.polarity  # Sentiment polarity (-1 to 1)
+
+        blob_sentiment_normalized = (blob_sentiment + 1) / 2
+
+        self.sentiment_subjectivity = (0.3 * result_normalized) + (0.7 * blob_sentiment_normalized)
+
+        print(self.sentiment_subjectivity)
+
         return self.sentiment_subjectivity
 
     @Aspect.log_execution
@@ -376,8 +391,7 @@ def scrape_and_create_article():
         )
 
         # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
-        # le pot scoate]
-        article.analyze_sentiment()
+        article.analyze_sentiment(url)
         article.check_consistency()
 
         article_content_no_paragraphs = article.content.replace('\n', ' ').replace('\r', ' ')
@@ -439,6 +453,30 @@ def delete_article(article_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+    
+
+@app.route('/articles/analyze', methods=['POST'])
+
+def analyze_article():
+
+    try:
+
+        data = request.json
+        url = data.get('url')
+
+        if not url:
+
+            return jsonify({"error": "URL is required"}), 400
+
+        result = keyword_extractor.process_article_and_keywords(url)
+
+        return jsonify({'score': result}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 if __name__ == "__main__":

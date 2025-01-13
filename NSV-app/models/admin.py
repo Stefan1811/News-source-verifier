@@ -1,24 +1,12 @@
 import sys
 import os
-from mop.monitor import monitor, rule, violation  # Importing MOP monitoring and rules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 from user import User
 from aop_wrapper import Aspect
 
 # Define a monitoring rule for input validation
-@rule("validate_manage_users")
-def validate_manage_users_inputs(action: str, kwargs: dict):
-    valid_actions = {"add", "remove", "update"}
-    if action not in valid_actions:
-        raise violation(f"Invalid action '{action}'. Must be one of {valid_actions}.")
-    if action == "add" or action == "update":
-        if "username" not in kwargs or not isinstance(kwargs["username"], str) or not kwargs["username"]:
-            raise violation("Missing or invalid 'username'. It must be a non-empty string.")
-        if "email" not in kwargs or not isinstance(kwargs["email"], str) or not kwargs["email"]:
-            raise violation("Missing or invalid 'email'. It must be a valid string.")
-    return True  # Pass validation if no issues are found
 
-@monitor  # Apply monitoring to the class
+
 class Admin(User):
     @Aspect.log_execution
     @Aspect.measure_time
@@ -28,7 +16,6 @@ class Admin(User):
         super().__init__(user_id, username, email)
         self.role = "admin"
 
-    @validate_manage_users_inputs  # Use the MOP rule for validation
     @Aspect.log_execution
     @Aspect.measure_time
     @Aspect.handle_exceptions

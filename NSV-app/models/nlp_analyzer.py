@@ -9,13 +9,13 @@ from abc import ABC, abstractmethod
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import nltk
 from datetime import datetime
-from models.aop_wrapper import Aspect
+from aop_wrapper import Aspect
+from statistics import median
 
 nltk.download('stopwords')
 
 def get_class_name(instance):
     return instance.__class__.__name__
-
 
 class Trigger:
     @staticmethod
@@ -27,15 +27,19 @@ class Trigger:
         logging.error(f"Trigger Action: Validation violation - {message}")
 
 class Monitor:
+    def _raise_validation_error(message):
+        Trigger.on_validation_violation(message)
+        raise ValueError(message)
+
+    def _log_validation_success(message):
+        Trigger.on_validation_success(message)
+
     @staticmethod
     def validate_keyword_extraction(keywords):
         if not keywords:
-            message = "No keywords extracted."
-            Trigger.on_validation_violation(message)
-            raise ValueError(message)
-        else:
-            message = f"Keyword extraction validated. {len(keywords)} keywords found."
-            Trigger.on_validation_success(message)
+            Monitor._raise_validation_error("No keywords extracted.")
+        Monitor._log_validation_success(f"Keyword extraction validated. {len(keywords)} keywords found.")
+
 
     @staticmethod
     def validate_sentiment_analysis(keywords):
@@ -127,83 +131,10 @@ class Monitor:
             else:
                 Trigger.on_validation_success("Log file integrity validated.")
 
-class KeywordExtractor:
-    def __init__(self, sentiment_analyzers):
-        self.sentiment_analyzers = sentiment_analyzers
-        self.stop_words = set(stopwords.words('english'))
-
-    @Aspect.log_execution
-    @Aspect.measure_time
-    def extract_keywords(self, text):
-        sentences = text.split('.')
-        word_freq = Counter(re.findall(r'\b\w+\b', text.lower()))
-        
-        keyword_sentiments = defaultdict(lambda: {"frequency": 0, "vader_score": 0, "sentiment_counts": Counter()})
-        
-        for sentence in sentences:
-            sentence = sentence.strip()
-            words = [word for word in re.findall(r'\b\w+\b', sentence.lower()) if word not in self.stop_words]
-            for word in words:
-                keyword_sentiments[word]["frequency"] += 1
-                
-                for analyzer in self.sentiment_analyzers:
-                    result = analyzer.analyze_text(sentence)
-                    
-                    if "vader_score" in result:
-                        keyword_sentiments[word]["vader_score"] += result["vader_score"]
-                    
-                    keyword_sentiments[word]["sentiment_counts"][result["sentiment"]] += 1
-
-        for word, data in keyword_sentiments.items():
-            data["vader_score"] /= data["frequency"]  
-            data["sentiment"] = data["sentiment_counts"].most_common(1)[0][0]
-
-        sorted_keywords = dict(sorted(keyword_sentiments.items(), key=lambda item: item[1]["frequency"], reverse=True))
-
-        Monitor.validate_keyword_extraction(sorted_keywords)
-        Monitor.validate_sentiment_analysis(sorted_keywords)
-        Monitor.validate_sentiment_distribution(sorted_keywords)
-        Monitor.validate_keyword_frequency(sorted_keywords)
-
-        return sorted_keywords
-
-    @Aspect.log_execution
-    @Aspect.measure_time
-    @Aspect.handle_exceptions
-    def save_keywords_to_file(self, keywords, filename="keywords_summary.txt"):
-        with open(filename, "w", encoding="utf-8") as file:
-            for word, data in keywords.items():
-                file.write(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}\n")
-        logging.info(f"Keywords saved to {filename}")
-
 class SentimentAnalyzer(ABC):
     @abstractmethod
     def analyze_text(self, text):
         pass
-
-class TextBlobSentimentAnalyzer(SentimentAnalyzer):
-    def analyze_text(self, text):
-        blob = TextBlob(text)
-        sentiment_score = blob.sentiment.polarity
-        sentiment = "Neutral"
-        if sentiment_score > 0:
-            sentiment = "Positive"
-        elif sentiment_score < 0:
-            sentiment = "Negative"
-        return {"sentiment": sentiment, "score": sentiment_score}
-
-class VaderSentimentAnalyzer(SentimentAnalyzer):
-    def __init__(self):
-        self.analyzer = SentimentIntensityAnalyzer()
-
-    def analyze_text(self, text):
-        sentiment_score = self.analyzer.polarity_scores(text)["compound"]
-        sentiment = "Neutral"
-        if sentiment_score > 0:
-            sentiment = "Positive"
-        elif sentiment_score < 0:
-            sentiment = "Negative"
-        return {"sentiment": sentiment, "vader_score": sentiment_score}
 
 class ArticleParser:
     @Aspect.log_execution
@@ -211,26 +142,29 @@ class ArticleParser:
     @Aspect.handle_exceptions
     def extract_article_text(self, url):
         Monitor.validate_url(url)
+        response = self.fetch_url_content(url)
+        soup = BeautifulSoup(response.content, "html.parser")
+        self.remove_unwanted_content(soup)
+        article_text = self.parse_article_content(soup)
+        Monitor.validate_article_content(article_text)
+        return article_text.strip()
+
+    def fetch_url_content(self, url):
         try:
             response = requests.get(url)
             response.raise_for_status()
-            soup = BeautifulSoup(response.content, "html.parser")
-            self.remove_unwanted_content(soup)
-
-            article = soup.find("article")
-            if article:
-                text = article.get_text()
-            else:
-                paragraphs = soup.find_all("p")
-                text = ' '.join([p.get_text() for p in paragraphs])
-
-            Monitor.validate_article_content(text)
-            return text.strip()
-
+            return response
         except requests.exceptions.RequestException as e:
             raise ValueError(f"Error fetching the article: {e}")
-        except Exception as e:
-            raise Exception(f"An error occurred while processing the article: {e}")
+
+    def parse_article_content(self, soup):
+        article = soup.find("article")
+        if article:
+            return article.get_text()
+        paragraphs = soup.find_all("p")
+        return ' '.join([p.get_text() for p in paragraphs])
+
+
 
     @Aspect.log_execution
     @Aspect.measure_time
@@ -247,74 +181,197 @@ class ArticleParser:
             file.write(article_text)
         logging.info(f"Article text saved to {filename}")
 
-
-# Abstract SentimentAnalyzer class
-class SentimentAnalyzer(ABC):
-    @abstractmethod
-    def analyze_text(self, text):
-        pass
-
-# TextBlob-based SentimentAnalyzer implementation
-class TextBlobSentimentAnalyzer(SentimentAnalyzer):
-    @Aspect.log_execution
-    @Aspect.measure_time
-    @Aspect.handle_exceptions
-    def analyze_text(self, text):
-        blob = TextBlob(text)
-        polarity = blob.sentiment.polarity
-        sentiment = "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
-        return {"sentiment": sentiment}
-
-
-class VaderSentimentAnalyzer(SentimentAnalyzer):
+class KeywordExtractor:
     def __init__(self):
-        self.analyzer = SentimentIntensityAnalyzer()
+        self.sentiment_analyzers = [TextBlobSentimentAnalyzer(), VaderSentimentAnalyzer()]
+        self.stop_words = set(stopwords.words('english'))
 
     @Aspect.log_execution
     @Aspect.measure_time
-    @Aspect.handle_exceptions
-    def analyze_text(self, text):
-        score = self.analyzer.polarity_scores(text)['compound']
-        sentiment = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"
-        return {"sentiment": sentiment, "vader_score": score}
+    def extract_keywords(self, text):
+        sentences = self.tokenize_text(text)
+        word_freq = self.calculate_word_frequency(text)
+        keyword_sentiments = self.analyze_keyword_sentiments(sentences, word_freq)
 
-def main():
-    url = "https://edition.cnn.com/2024/11/12/politics/trump-team-loyalists-analysis/index.html"
+        sorted_keywords = dict(sorted(
+            keyword_sentiments.items(), 
+            key=lambda item: item[1]["frequency"], 
+            reverse=True
+        ))
 
-    sentiment_analyzers = [TextBlobSentimentAnalyzer(), VaderSentimentAnalyzer()]
-    keyword_extractor = KeywordExtractor(sentiment_analyzers)
-    parser = ArticleParser()
+        self.validate_keywords(sorted_keywords)
+        return sorted_keywords
 
-    try:
+    def tokenize_text(self, text):
+        return text.split('.')
+
+    def calculate_word_frequency(self, text):
+        words = [word for word in re.findall(r'\b\w+\b', text.lower()) if word not in self.stop_words]
+        return Counter(words)
+
+    def analyze_keyword_sentiments(self, sentences, word_freq):
+        keyword_sentiments = defaultdict(lambda: {"frequency": 0, "vader_score": 0, "sentiment_counts": Counter()})
+        for sentence in sentences:
+            words = self.extract_words_from_sentence(sentence)
+            self.update_sentiments_for_sentence(sentence, words, keyword_sentiments)
+        self.finalize_sentiment_scores(keyword_sentiments)
+        return keyword_sentiments
+
+    def extract_words_from_sentence(self, sentence):
+        sentence = sentence.strip()
+        return [word for word in re.findall(r'\b\w+\b', sentence.lower()) if word not in self.stop_words]
+
+    def update_sentiments_for_sentence(self, sentence, words, keyword_sentiments):
+        for word in words:
+            keyword_sentiments[word]["frequency"] += 1
+            for analyzer in self.sentiment_analyzers:
+                result = analyzer.analyze_text(sentence)
+                self.update_sentiment_data(word, result, keyword_sentiments)
+
+    def update_sentiment_data(self, word, result, keyword_sentiments):
+        if "vader_score" in result:
+            keyword_sentiments[word]["vader_score"] += result["vader_score"]
+        else:
+            logging.warning(f"Missing 'vader_score' for word: {word}.")
+
+        if "sentiment" in result:
+            keyword_sentiments[word]["sentiment_counts"][result["sentiment"]] += 1
+        else:
+            logging.warning(f"Missing 'sentiment' for word: {word}.")
+
+    def finalize_sentiment_scores(self, keyword_sentiments):
+        for word, data in keyword_sentiments.items():
+            data["vader_score"] /= data["frequency"]
+            data["sentiment"] = data["sentiment_counts"].most_common(1)[0][0]
+
+    def validate_keywords(self, keywords):
+        Monitor.validate_keyword_extraction(keywords)
+        Monitor.validate_sentiment_analysis(keywords)
+        Monitor.validate_sentiment_distribution(keywords)
+        Monitor.validate_keyword_frequency(keywords)
+    
+    def calculate_aggregate_score(self, keywords):
+        # Sort keywords by frequency in descending order
+        sorted_keywords = sorted(keywords.items(), key=lambda item: item[1]['frequency'], reverse=True)
+
+        # Extract the top 10 most frequent keywords
+        top_10_keywords = sorted_keywords[:10]
+        print(top_10_keywords)
+
+        # Extract frequencies and VADER scores
+        frequencies = [data['frequency'] for _, data in top_10_keywords]
+        vader_scores = [data['vader_score'] for _, data in top_10_keywords]
+
+        # Calculate the weighted sum of VADER scores
+        weighted_vader_sum = sum(frequency * vader_score for frequency, vader_score in zip(frequencies, vader_scores))
+
+        # Calculate the total weight (sum of frequencies)
+        total_weight = sum(frequencies)
+
+        # Calculate the weighted average VADER score
+        weighted_average_vader_score = weighted_vader_sum / total_weight if total_weight else 0
+
+        # Calculate medians
+        median_frequency = median(frequencies)
+        median_vader_score = median(vader_scores)
+
+        # Aggregate score as the average of the weighted average and median of frequencies and VADER scores
+        aggregate_score = (median_frequency + weighted_average_vader_score) / 2
+
+        print("Weighted Average VADER Score:", weighted_average_vader_score)
+        print("Aggregate Score:", aggregate_score)
+
+        return weighted_average_vader_score
+
+    def process_article_and_keywords(self, url, output_text_filename="article_text.txt", output_keywords_filename="keywords_summary.txt"):
+        # Extract article text from the URL
+        parser = ArticleParser()
         article_text = parser.extract_article_text(url)
-        parser.save_article_text_to_file(article_text, "article_text.txt")
-        print("Article text saved to 'article_text.txt'.")
+        parser.save_article_text_to_file(article_text, output_text_filename)
+        print(f"Article text saved to '{output_text_filename}'.")
 
+        # Validate article content
         Monitor.validate_article_content(article_text)
 
-        keywords = keyword_extractor.extract_keywords(article_text)
-        keyword_extractor.save_keywords_to_file(keywords, "keywords_summary.txt")
-        print("Keywords and their sentiments saved to 'keywords_summary.txt'.")
+        # Extract keywords from article
+        keywords = self.extract_keywords(article_text)
+        self.save_keywords_to_file(keywords, output_keywords_filename)
+        print(f"Keywords and their sentiments saved to '{output_keywords_filename}'.")
 
+        # Validate keywords and sentiment analysis
         Monitor.validate_keyword_extraction(keywords)
         Monitor.validate_sentiment_analysis(keywords)
         Monitor.validate_sentiment_distribution(keywords)
         Monitor.validate_keyword_frequency(keywords)
         Monitor.validate_data_completeness(keywords)
 
+        # Validate sentiment scores for each keyword
         for word, data in keywords.items():
             Monitor.validate_sentiment_score(data["vader_score"], word)
+        # Calculate the aggregate score and print the results
+        result_top_keywords = self.calculate_aggregate_score(keywords)
+        print(result_top_keywords)
 
+        # Validate execution time (this can be adjusted as needed)
         start_time = datetime.now()
-        end_time = datetime.now()
+        end_time = datetime.now()  # You can replace this with actual end time calculation
         Monitor.validate_execution_time(start_time, end_time, "Keyword extraction")
+        return result_top_keywords
 
-        print("\nExtracted Keywords and Sentiments:")
-        for word, data in keywords.items():
-            print(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}")
+    @Aspect.log_execution
+    @Aspect.measure_time
+    @Aspect.handle_exceptions
+    def save_keywords_to_file(self, keywords, filename="keywords_summary.txt"):
+        with open(filename, "w", encoding="utf-8") as file:
+            for word, data in keywords.items():
+                file.write(f"Keyword: {word}, Frequency: {data['frequency']}, Sentiment: {data['sentiment']}, Average VADER Score: {data['vader_score']:.2f}\n")
+        logging.info(f"Keywords saved to {filename}")
 
-    except Exception as e:
-        Monitor.validate_exception_handling(e)
+    
+class TextBlobSentimentAnalyzer(SentimentAnalyzer):
+    POSITIVE = "Positive"
+    NEUTRAL = "Neutral"
+    NEGATIVE = "Negative"
+
+    def analyze_text(self, text):
+        sentiment_score = self.get_sentiment_score(text)
+        sentiment = self.determine_sentiment(sentiment_score)
+        return {"sentiment": sentiment, "score": sentiment_score}
+
+    def get_sentiment_score(self, text):
+        blob = TextBlob(text)
+        return blob.sentiment.polarity
+
+    def determine_sentiment(self, sentiment_score):
+        if sentiment_score > 0:
+            return self.POSITIVE
+        elif sentiment_score < 0:
+            return self.NEGATIVE
+        return self.NEUTRAL
+
+
+class VaderSentimentAnalyzer(SentimentAnalyzer):
+    def __init__(self):
+        self.analyzer = SentimentIntensityAnalyzer()
+
+    def analyze_text(self, text):
+        sentiment_score = self.analyzer.polarity_scores(text)["compound"]
+        sentiment = "Neutral"
+        if sentiment_score > 0:
+            sentiment = "Positive"
+        elif sentiment_score < 0:
+            sentiment = "Negative"
+        return {"sentiment": sentiment, "vader_score": sentiment_score}
+
+
+def main():
+    url = "https://edition.cnn.com/2024/11/12/politics/trump-team-loyalists-analysis/index.html"
+    keyword_extractor = KeywordExtractor()
+
+    # Process the article and keywords extraction
+    rezultat = keyword_extractor.process_article_and_keywords(url)
+    print("result")
+    print(rezultat)
 
 if __name__ == "__main__":
     main()
