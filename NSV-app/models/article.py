@@ -24,12 +24,12 @@ from tensorflow.keras.models import load_model
 from nltk.corpus import stopwords
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from model_prep.model_testing import cleanText, predict_news
+from model_prep.model_testing import fake_news_det, predict_news
 from nlp_analyzer import KeywordExtractor
 
 keyword_extractor = KeywordExtractor
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxxxx'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -398,10 +398,9 @@ def scrape_and_create_article():
         print(f"Content without paragraphs: {article_content_no_paragraphs}")
 
         # Preprocess the article content for prediction
-        prediction_data = predict_news([article_content_no_paragraphs])
-        print(f"Prediction data: {prediction_data}")
-        article.ml_model_prediction = float(prediction_data[0])
-
+        prediction = predict_news(article_content_no_paragraphs)
+        print(prediction)
+        article.ml_model_prediction = prediction
         article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency
 
         db.session.add(article)
