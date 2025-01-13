@@ -21,6 +21,20 @@ function UrlForm() {
     ));
   };
 
+  const checkArticleExists = async (url) => {
+    try {
+        const response = await fetch(`http://127.0.0.1:5000/articles/${encodeURIComponent(url)}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data; // Article found
+        }
+        return null; // Article not found
+    } catch (error) {
+        console.error('Error checking article:', error);
+        return null; // Treat as not found on error
+    }
+};
+
   const [detailsVisible, setDetailsVisible] = useState(false);
 
   const toggleDetails = () => {
@@ -46,37 +60,48 @@ function UrlForm() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
     if (!url) {
-      setErrorMessage('URL is required');
-      setArticleData(null);
-      return;
+        setErrorMessage('URL is required');
+        setSelectedArticle(null); // Clear the selected article
+        return;
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/articles/scrape', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+        // Step 1: Check if the article exists in the database
+        const existingArticle = await checkArticleExists(url);
+        if (existingArticle) {
+            setSelectedArticle(existingArticle); // Set the article as selected
+            setErrorMessage(''); // Clear any error messages
+            setModalIsOpen(true); // Open the modal
+            return; // Exit early, no need to scrape
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        setErrorMessage(`Error: ${errorData.error}`);
-        setArticleData(null);
-        return;
-      }
+        // Step 2: If not found, scrape the article
+        const response = await fetch('http://127.0.0.1:5000/articles/scrape', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({url}),
+        });
 
-      const responseData = await response.json();
-      setArticleData(responseData);
-      setErrorMessage('');
-      setArticleDataModalOpen(true); // Open the modal for articleData
+        if (!response.ok) {
+            const errorData = await response.json();
+            setErrorMessage(`Error: ${errorData.error}`);
+            setSelectedArticle(null);
+            return;
+        }
+
+        const responseData = await response.json();
+        setSelectedArticle(responseData); // Set the newly scraped article as selected
+        setErrorMessage(''); // Clear any error messages
+        setModalIsOpen(true); // Open the modal
     } catch (error) {
-      setErrorMessage(`An error occurred: ${error.message}`);
-      setArticleData(null);
+        setErrorMessage(`An error occurred: ${error.message}`);
+        setSelectedArticle(null);
     }
-  };
+};
 
   const handleIconClick = (article) => {
     setSelectedArticle(article);
