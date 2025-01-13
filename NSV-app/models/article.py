@@ -5,21 +5,19 @@ import os
 from aop_wrapper import Aspect
 import re
 import sys
-import mop
+from nlp_analyzer import KeywordExtractor
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxx'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_mGZdxB9w-3YOQzvrpoE@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+keyword_extractor = KeywordExtractor()
 
-@mop.monitor(
-    lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'] and
-                'url' in req.json and len(req.json.get('url', '').strip()) > 0,
-    lambda req: "Invalid request: HTTP method or URL field is invalid"
-)
+
 def validate_request(req):
     """HTTP request validation."""
     if req.method not in ['GET', 'POST', 'PUT', 'DELETE']:
@@ -53,9 +51,7 @@ def validate_non_null_fields(req):
     print(f"All required fields validation passed for request with path: {req.path}")
     return req
 
-@app.before_request
-def monitor_request():
-    validate_request(request)
+
 
 from textblob import TextBlob
 import logging
@@ -130,14 +126,27 @@ class Article(db.Model):
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @log_method_call
-    def analyze_sentiment(self):
+    def analyze_sentiment(self, url):
         """
         Analyzes the sentiment of the article's content.
-        - Sentiment score will be used as a factor in the trust score calculation.
+        - Combines VADER result (30%) and TextBlob sentiment polarity (70%) into a normalized score.
         """
+        # Get VADER sentiment score
+        result = keyword_extractor.process_article_and_keywords(url)  # VADER score (-1 to 1)
+        print(result)
+        # Normalize result to 0-1
+        result_normalized = (result + 1) / 2  # Converts -1 to 1 range into 0 to 1
+
         # Use TextBlob to perform sentiment analysis
         blob = TextBlob(self.content)
-        self.sentiment_subjectivity = blob.sentiment.subjectivity
+        blob_sentiment = blob.sentiment.polarity  # Sentiment polarity (-1 to 1)
+
+        # Normalize TextBlob sentiment to 0-1
+        blob_sentiment_normalized = (blob_sentiment + 1) / 2
+
+        # Calculate the weighted score
+        self.sentiment_subjectivity = (0.3 * result_normalized) + (0.7 * blob_sentiment_normalized)
+        print(self.sentiment_subjectivity)
         return self.sentiment_subjectivity
 
     @Aspect.log_execution
@@ -279,7 +288,8 @@ def scrape_and_create_article():
 
         # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
         #le pot scoate]
-        article.analyze_sentiment()
+        nlpScore=article.analyze_sentiment(url)
+        print(nlpScore)
         article.check_consistency()
 
         db.session.add(article)
@@ -329,6 +339,30 @@ def delete_article(article_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+
+
+
+@app.route('/articles/analyze', methods=['POST'])
+def analyze_article():
+    """
+    Processes an article by its URL, analyzes its sentiment, and updates the sentiment_subjectivity field.
+    """
+    try:
+        data = request.json
+        url = data.get('url')
+
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+
+        # Search for the article by URL in the database
+
+        result = keyword_extractor.process_article_and_keywords(url)
+        return jsonify({'score': result}), 200
+
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
