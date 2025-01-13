@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Pie } from 'react-chartjs-2';
 import './UrlForm.css';
+
+// Register required elements
+Chart.register(ArcElement, Tooltip, Legend);
 
 function UrlForm() {
   const [url, setUrl] = useState('');
@@ -85,6 +90,24 @@ function UrlForm() {
 
   const closeSelectedArticleModal = () => {
     setModalIsOpen(false); // Just close the modal for existing articles
+  };
+
+  const renderPieChart = (data) => {
+    const chartData = {
+      labels: ['Content Consistency', 'ML Model Prediction', 'Sentiment Subjectivity'],
+      datasets: [
+        {
+          data: [data.content_consistency, data.ml_model_prediction, data.sentiment_subjectivity],
+          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+        },
+      ],
+    };
+
+    return (
+      <div style={{ width: '50%', margin: '20px auto' }}>
+        <Pie data={chartData} />
+      </div>
+    );
   };
 
   const renderModalContent = (data, closeModalHandler) => (
@@ -173,6 +196,7 @@ function UrlForm() {
                 <strong>Sentiment Subjectivity:</strong>{' '}
                 {data.sentiment_subjectivity.toFixed(3)}
               </p>
+              {renderPieChart(data)}
             </div>
           )}
         </div>
