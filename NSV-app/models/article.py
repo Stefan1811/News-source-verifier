@@ -231,6 +231,14 @@ def get_article(article_id):
         return jsonify({"error": "Article not found"}), 404
     return jsonify(article.to_dict()), 200
 
+@app.route('/articles/<path:url>', methods=['GET'])
+def get_article_url(url):
+    """Get a single article by URL."""
+    article = Article.query.filter_by(url=url).first()
+    if article is None:
+        return jsonify({"error": "Article not found"}), 404
+    return jsonify(article.to_dict()), 200
+
 @app.route('/articles', methods=['POST'])
 def create_article():
     """Create a new article."""
