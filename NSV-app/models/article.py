@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+from collections import Counter
 
 from sqlalchemy import desc
 
@@ -17,12 +18,13 @@ CORS(app)
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, \
+    Dropout
 from tensorflow.keras.models import load_model
 from nltk.corpus import stopwords
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from model_prep.model_testing import cleanText, predict_news
-
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -31,6 +33,7 @@ db = SQLAlchemy(app)
 
 model = load_model('model_prep/fake_news_model.h5')
 stop = stopwords.words('english')
+
 
 @mop.monitor(
     lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'] and
@@ -50,6 +53,7 @@ def validate_request(req):
     logging.info(f"Validated {req.method} request to {req.path} with data {req.json}")
     return req
 
+
 def validate_content(req):
     """Validates the content field after scraping."""
     if 'content' in req.json and len(req.json.get('content', '').strip()) > 0:
@@ -58,6 +62,7 @@ def validate_content(req):
         print(f"Content validation failed for request with path: {req.path}")
         print(f"Request data: {req.json}")
     return req
+
 
 def validate_non_null_fields(req):
     """Validates that required fields are not null."""
@@ -70,9 +75,11 @@ def validate_non_null_fields(req):
     print(f"All required fields validation passed for request with path: {req.path}")
     return req
 
+
 @app.before_request
 def monitor_request():
     validate_request(request)
+
 
 from textblob import TextBlob
 import logging
@@ -86,10 +93,12 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+
 def log_method_call(func):
     """returnată
     Decorator pentru apelurile functiilor, numele functiei, argumentele si valoarea returnata.
     """
+
     def wrapper(*args, **kwargs):
         class_name = args[0].__class__.__name__
         method_name = func.__name__
@@ -101,6 +110,7 @@ def log_method_call(func):
         logging.info(f"{class_name}.{method_name} returned: {result}")
 
         return result
+
     return wrapper
 
 
@@ -177,14 +187,61 @@ class Article(db.Model):
         """
         Checks the consistency of the content to assess credibility.
         - Checks for factual alignment with other reputable sources.
+        - Checks for the presence of keywords indicating potential misinformation.
+        - Checks for the length of the content.
         """
-        # Simulate a basic consistency check
-        if 'fake' in self.title.lower() or 'misinformation' in self.content.lower():
+        # Keywords indicating potential misinformation
+        misinformation_keywords = ['fake', 'misinformation', 'conspiracy', 'false', 'debunked', 'fraud',
+                                   'scam', 'unverified', 'unreliable', 'unsubstantiated', 'rumor', 'fabricated',
+                                   'rau', 'fals', 'neadevarat', 'dezinformare', 'conspiratie', 'frauda',
+                                   'escrocherie', 'nemotivat', 'nerecunoscut', 'nejustificat', 'zvon', 'fabricat']
+        reputable_sources = ['bbc', 'cnn', 'reuters', 'nytimes', 'theguardian',
+                             'washingtonpost', 'wsj', 'bloomberg', 'apnews', 'npr',
+                             'digi24', 'stirileprotv', 'antena3',
+                             'realitatea', 'gandul', 'adevarul', 'ziare']
+
+        # Check for misinformation keywords in title and content
+        if any(keyword in self.title.lower() for keyword in misinformation_keywords) or \
+                any(keyword in self.content.lower() for keyword in misinformation_keywords):
+            content_consistency = 0.3
+        else:
+            content_consistency = 0.9
+
+        # Check for reputable sources in the content
+        if any(self.url in self.content.lower() for source in reputable_sources):
+            content_consistency += 0.1
+
+        # Check for content length
+        if len(self.content) < 500:
+            content_consistency -= 0.1
+
+        blob = TextBlob(self.content)
+        sentiment_score = blob.sentiment.polarity
+        if sentiment_score < -0.5:
+            sentiment_consistency = 0.4
+        elif sentiment_score > 0.5:
+            sentiment_consistency = 1.0
+        else:
+            sentiment_consistency = 0.8
+
+        words = self.content.lower().split()
+        word_counts = Counter(words)
+        # Check for repetitive words = 5 times or more means that the article is not consistent
+        repetitive_words = [word for word, count in word_counts.items() if count > 5]
+        if repetitive_words:
+            content_consistency -= 0.1
+
+        # 5. mean between content and sentiment consistency
+        self.content_consistency = (content_consistency + sentiment_consistency) / 2.0
+
+        # Ensure consistency score is within bounds
+        self.content_consistency = max(0.0, min(self.content_consistency, 1.0))
+
+        if self.content_consistency < 0.6:
             self.status = "unverified"
-            self.content_consistency = 0.3
         else:
             self.status = "verified"
-            self.content_consistency = 0.9
+
         return self.content_consistency
 
     @Aspect.log_execution
@@ -216,12 +273,14 @@ def get_all_articles():
     articles = Article.query.all()
     return jsonify([article.to_dict() for article in articles]), 200
 
+
 @app.route('/latest-articles', methods=['GET'])
 def get_latest_articles():
     # Selectăm ultimele 5 articole ordonate descrescător după created_at
     latest_articles = Article.query.order_by(desc(Article.created_at)).limit(5).all()
     articles_list = [article.to_dict() for article in latest_articles]
     return jsonify(articles_list), 200
+
 
 @app.route('/articles/<int:article_id>', methods=['GET'])
 def get_article(article_id):
@@ -231,6 +290,7 @@ def get_article(article_id):
         return jsonify({"error": "Article not found"}), 404
     return jsonify(article.to_dict()), 200
 
+
 @app.route('/articles/<path:url>', methods=['GET'])
 def get_article_url(url):
     """Get a single article by URL."""
@@ -238,6 +298,7 @@ def get_article_url(url):
     if article is None:
         return jsonify({"error": "Article not found"}), 404
     return jsonify(article.to_dict()), 200
+
 
 @app.route('/articles', methods=['POST'])
 def create_article():
@@ -272,6 +333,7 @@ def create_article():
 
 scraper = BeautifulSoupScraper()
 
+
 @app.route('/articles/scrape', methods=['POST'])
 def scrape_and_create_article():
     """
@@ -293,14 +355,18 @@ def scrape_and_create_article():
         request.json['content'] = article_data.get('content', '')
         validate_content(request)
 
+        try:
+            publish_date = datetime.fromisoformat(article_data['publish_date']) if article_data.get(
+                'publish_date') else None
+        except ValueError:
+            publish_date = None
+
         article = Article(
             url=article_data.get('url'),
             title=article_data.get('title'),
             content=article_data.get('content'),
             author=article_data.get('author'),
-            publish_date=datetime.fromisoformat(article_data['publish_date']) if article_data.get(
-                'publish_date') else None,
-
+            publish_date=publish_date,
             ml_model_prediction=0.0,
             source_credibility=0.0,
             sentiment_subjectivity=0.0,
@@ -310,20 +376,20 @@ def scrape_and_create_article():
         )
 
         # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
-        #le pot scoate]
+        # le pot scoate]
         article.analyze_sentiment()
         article.check_consistency()
 
         article_content_no_paragraphs = article.content.replace('\n', ' ').replace('\r', ' ')
         print(f"Content without paragraphs: {article_content_no_paragraphs}")
-        
+
         # Preprocess the article content for prediction
         prediction_data = predict_news([article_content_no_paragraphs])
         print(f"Prediction data: {prediction_data}")
         article.ml_model_prediction = float(prediction_data[0])
-        
-        article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency  
-        
+
+        article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency
+
         db.session.add(article)
         db.session.commit()
 
@@ -332,6 +398,7 @@ def scrape_and_create_article():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/articles/<int:article_id>', methods=['PUT'])
 def update_article(article_id):
@@ -357,6 +424,7 @@ def update_article(article_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+
 
 @app.route('/articles/<int:article_id>', methods=['DELETE'])
 def delete_article(article_id):
