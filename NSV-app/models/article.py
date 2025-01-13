@@ -27,7 +27,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 from model_prep.model_testing import fake_news_det, predict_news
 from nlp_analyzer import KeywordExtractor
 
-keyword_extractor = KeywordExtractor
+keyword_extractor = KeywordExtractor()
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -79,9 +79,10 @@ def validate_non_null_fields(req):
     return req
 
 
-@app.before_request
+"""@app.before_request
 def monitor_request():
     validate_request(request)
+    """
 
 
 from textblob import TextBlob
@@ -178,7 +179,7 @@ class Article(db.Model):
 
         self.sentiment_subjectivity = (0.3 * result_normalized) + (0.7 * blob_sentiment_normalized)
 
-        print(self.sentiment_subjectivity)
+        print("Sentiment subjectivity score: ")
 
         return self.sentiment_subjectivity
 
@@ -391,16 +392,21 @@ def scrape_and_create_article():
         )
 
         # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
-        article.analyze_sentiment(url)
+        
+    
         article.check_consistency()
 
         article_content_no_paragraphs = article.content.replace('\n', ' ').replace('\r', ' ')
-        print(f"Content without paragraphs: {article_content_no_paragraphs}")
+        #print(f"Content without paragraphs: {article_content_no_paragraphs}")
 
         # Preprocess the article content for prediction
         prediction = predict_news(article_content_no_paragraphs)
-        print(prediction)
+        #print(prediction)
         article.ml_model_prediction = prediction
+        
+        result = article.analyze_sentiment(url)
+        print(result)
+        article.sentiment_subjectivity = result
         article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency
 
         db.session.add(article)
