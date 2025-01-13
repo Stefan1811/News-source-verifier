@@ -19,39 +19,45 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 import model_config
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+import pickle
 
 
+loaded_model = pickle.load(open("model_prep/model.pkl", 'rb'))
+vector = pickle.load(open("model_prep/vector.pkl", 'rb'))
 
-model = load_model('model_prep/fake_news_model.h5')
-test_data = ["Trey Gowdy destroys this clueless DHS employee when asking about the due process of getting on the terror watch list. Her response is priceless:  I m sorry, um, there s not a process afforded the citizen prior to getting on the list.  ",
-       "Donald Trump is afraid of strong, powerful women. He is a horrific misogynist, and has shown himself to be so over and over again. That is nothing new. He has mocked the weight of a beauty queen, made repeated suggestions about women s menstrual cycles, and had repeatedly called women who accuse men   including himself   of sexual harassment and sexual assault of being liars and threatened to sue him. Now, he has gone even lower with an attack on Democratic Senator Kirsten Gillibrand (NY).In an early morning tweet, Trump actually suggested that Senator Gillibrand would have sex with him for campaign money. No, I m not kidding. Here is the tweet:Lightweight Senator Kirsten Gillibrand, a total flunky for Chuck Schumer and someone who would come to my office  begging  for campaign contributions not so long ago (and would do anything for them), is now in the ring fighting against Trump. Very disloyal to Bill & Crooked-USED!  Donald J. Trump (@realDonaldTrump) December 12, 2017For one thing, I don t think Kirsten Gillibrand has to beg the likes of Donald Trump for anything, and she certainly would not stoop anywhere near doing what Trump is suggesting for campaign money. Think about this, folks: the sitting  president  is actually saying that a sitting Senator offered him sex in exchange for campaign money. That is truly beyond the pale. We already knew that Donald Trump was a sexist asshole, but this is a new low, even for him.General Kelly, General McMaster, and whomever else is running that White House   DO SOMETHING about this fool s Twitter habit. It is way out of control, and he does great damage to the nation with ever 140 280 character outburst. This is outrageous. Forget the fact that the orange overlord is currently squatting in the Oval Office   no adult, period, should be acting like this.In this watershed  Me Too  moment in America, it is time to call out the Sexist-in-Chief for what he is   a complete misogynist who has no respect for women and never has. Ivanka, Melania, Sarah Huckabee Sanders, Hope Hicks, and all the other women in Trump s orbit need to step up and say that there s been more than enough. Curtail this man s sexist behavior, or turn in your woman card. Every last one of you.Featured image via Alex Wong/Getty Images.",
-      ]
-stop = stopwords.words('english')
-def cleanText(txt):
-    txt = txt.lower()
-    txt = ' '.join([word for word in txt.split() if word not in (stop)])
-    txt = re.sub('[^a-z]',' ',txt)
-    return txt  
+
+def fake_news_det(news):
+    lemmatizer = WordNetLemmatizer()
+    stpwrds = set(stopwords.words('english'))
+    corpus = []
+    review = news
+    review = re.sub(r'[^a-zA-Z\s]', '', review)
+    review = review.lower()
+    review = nltk.word_tokenize(review)
+    corpus = []
+    for y in review :
+        if y not in stpwrds :
+            corpus.append(lemmatizer.lemmatize(y))
+    input_data = [' '.join(corpus)]
+    vectorized_input_data = vector.transform(input_data)
+    prediction = loaded_model.predict(vectorized_input_data)
+     
+    return prediction
 
 def predict_news(text):
+    
+    prediction = fake_news_det(text)
+    if prediction == 1:
+        return 0
+    else:
+        return 1
 
-    tokenizer = Tokenizer(num_words=model_config.MAX_VOCAB_SIZE)
-    tokenizer.fit_on_texts(text)  
-    
-    test = tokenizer.texts_to_sequences(text)
-    X_test = pad_sequences(test, maxlen=model_config.MAX_SEQUENCE_LENGTH)
 
-    df_test = pd.DataFrame(text, columns=['test_sent'])
-    prediction = model.predict(X_test)
+fake_news = "Washington, D.C. — Vice President Kamala Harris continued to get the worst of the exchanges as a heated argument with a talking cactus toy entered its third hour this afternoon. The cactus seemed to have an immediate retort for everything the Vice President said, confounding Harris' intellect as she steadily lost control of the dispute. So, you think there's great significance to the passage of time, huh cactus? asked the Vice President. So, you think there's great significance to the passage of time, huh cactus? replied the cactus. Why are you calling me a cactus? I'm the Vice President! cried Harris. Why are you calling me a cactus? I'm the Vice President! retorted the cactus. But you are a cactus! said the cactus, still calm and collected as ever. The debate continued to rage on, with the cactus firmly remaining in control as the hours rolled by. Aides tried to intervene, but Harris remained determined as ever to best the succulent. At publishing time, Harris and the cactus had descended into a lengthy loop of shouting I'm the real Vice President! at each other. Gen Z keeps pulling up to new jobs, no cap. Here are their top qualifications."
+real_news = "Emmanuel Macron has praised the workers who restored Paris's Notre-Dame cathedral, calling their efforts impossible and a national remedy to the wound caused by the 2019 fire that devastated the Gothic landmark. After five and a half years of intensive restoration, the cathedral has been rebuilt and renovated, offering a stunning new look while preserving its historical charm. The €700 million restoration involved over 2,000 craftsmen and women, from masons to sculptors, and the project showcased French craftsmanship globally. Macron, who had pledged to reopen the cathedral within five years, played a key role in mobilizing funds and organizing the effort, although his involvement sparked debate about his political motivations. The rebuilt Notre-Dame, set to officially reopen in December 2025, is a symbol of collective will and resilience, despite some controversy over modern elements, such as new stained-glass windows."
     
-    df_test['prediction'] = prediction
-    df_test["test_sent"] = df_test["test_sent"].apply(cleanText)
-    #df_test['prediction'] = df_test['prediction'].apply(lambda x: "Real" if x >= 0.5 else "Fake")
-    
-    return df_test['prediction']
-
-#print(predict_news(test_data))
-    
-    
-    
+#print(fake_news_det(fake_news))
+#print(fake_news_det(real_news))
     
