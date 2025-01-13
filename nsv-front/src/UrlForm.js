@@ -23,17 +23,17 @@ function UrlForm() {
 
   const checkArticleExists = async (url) => {
     try {
-        const response = await fetch(`http://127.0.0.1:5000/articles/${encodeURIComponent(url)}`);
-        if (response.ok) {
-            const data = await response.json();
-            return data; // Article found
-        }
-        return null; // Article not found
+      const response = await fetch(`http://127.0.0.1:5000/articles/${encodeURIComponent(url)}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data; // Article found
+      }
+      return null; // Article not found
     } catch (error) {
-        console.error('Error checking article:', error);
-        return null; // Treat as not found on error
+      console.error('Error checking article:', error);
+      return null; // Treat as not found on error
     }
-};
+  };
 
   const [detailsVisible, setDetailsVisible] = useState(false);
 
@@ -62,46 +62,46 @@ function UrlForm() {
     event.preventDefault();
 
     if (!url) {
-        setErrorMessage('URL is required');
-        setSelectedArticle(null); // Clear the selected article
-        return;
+      setErrorMessage('URL is required');
+      setSelectedArticle(null); // Clear the selected article
+      return;
     }
 
     try {
-        // Step 1: Check if the article exists in the database
-        const existingArticle = await checkArticleExists(url);
-        if (existingArticle) {
-            setSelectedArticle(existingArticle); // Set the article as selected
-            setErrorMessage(''); // Clear any error messages
-            setModalIsOpen(true); // Open the modal
-            return; // Exit early, no need to scrape
-        }
-
-        // Step 2: If not found, scrape the article
-        const response = await fetch('http://127.0.0.1:5000/articles/scrape', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({url}),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            setErrorMessage(`Error: ${errorData.error}`);
-            setSelectedArticle(null);
-            return;
-        }
-
-        const responseData = await response.json();
-        setSelectedArticle(responseData); // Set the newly scraped article as selected
+      // Step 1: Check if the article exists in the database
+      const existingArticle = await checkArticleExists(url);
+      if (existingArticle) {
+        setSelectedArticle(existingArticle); // Set the article as selected
         setErrorMessage(''); // Clear any error messages
         setModalIsOpen(true); // Open the modal
-    } catch (error) {
-        setErrorMessage(`An error occurred: ${error.message}`);
+        return; // Exit early, no need to scrape
+      }
+
+      // Step 2: If not found, scrape the article
+      const response = await fetch('http://127.0.0.1:5000/articles/scrape', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setErrorMessage(`Error: ${errorData.error}`);
         setSelectedArticle(null);
+        return;
+      }
+
+      const responseData = await response.json();
+      setSelectedArticle(responseData); // Set the newly scraped article as selected
+      setErrorMessage(''); // Clear any error messages
+      setModalIsOpen(true); // Open the modal
+    } catch (error) {
+      setErrorMessage(`An error occurred: ${error.message}`);
+      setSelectedArticle(null);
     }
-};
+  };
 
   const handleIconClick = (article) => {
     setSelectedArticle(article);
@@ -170,20 +170,44 @@ function UrlForm() {
         >
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <i
-              className={`fas ${
-                data.trust_score >= 0.5 ? 'fa-check-circle' : 'fa-times-circle'
-              }`}
+              className={`fas ${data.trust_score >= 0.75
+                ? 'fa-check-circle'
+                : data.trust_score >= 0.5
+                  ? 'fa-check-circle'
+                  : data.trust_score >= 0.25
+                    ? 'fa-times-circle'
+                    : 'fa-times-circle'
+                }`}
               style={{
-                color: data.trust_score >= 0.5 ? 'green' : 'red',
+                color:
+                  data.trust_score >= 0.75
+                    ? 'green'
+                    : data.trust_score >= 0.5
+                      ? '#36a2eb'
+                      : data.trust_score >= 0.25
+                        ? '#ffce56'
+                        : 'red',
                 marginRight: '8px',
               }}
             ></i>
             <span>
               {data.trust_score !== null
-                ? data.trust_score.toFixed(2)
-                : 'N/A'}
+                ? `${Math.round(data.trust_score * 100)}% - ` : 'N/A'}
+              {data.trust_score !== null &&
+                <strong>
+                  {data.trust_score >= 0.75
+                    ? 'Reliable'
+                    : data.trust_score >= 0.5
+                      ? 'Seems Reliable'
+                      : data.trust_score >= 0.25
+                        ? 'Seems Fake'
+                        : 'Fake'}
+                </strong>
+              }
             </span>
+
           </div>
+
           <i
             className={`fas fa-chevron-${detailsVisible ? 'up' : 'down'}`}
             style={{
