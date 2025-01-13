@@ -2,22 +2,41 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+
+from sqlalchemy import desc
+
 from aop_wrapper import Aspect
 import re
 import sys
-from nlp_analyzer import KeywordExtractor
+import mop
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://avnadmin:AVNS_mGZdxB9w-3YOQzvrpoE@nsv-aset-2024-nsv-aset.h.aivencloud.com:16519/defaultdb?sslmode=require'
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Conv1D, MaxPooling1D, Bidirectional, GlobalMaxPool1D, Input, Dropout
+from tensorflow.keras.models import load_model
+from nltk.corpus import stopwords
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from model_prep.model_testing import cleanText, predict_news
 
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'xxxxxxxx'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-keyword_extractor = KeywordExtractor()
+model = load_model('model_prep/fake_news_model.h5')
+stop = stopwords.words('english')
 
-
+@mop.monitor(
+    lambda req: req.method in ['GET', 'POST', 'PUT', 'DELETE'] and
+                'url' in req.json and len(req.json.get('url', '').strip()) > 0,
+    lambda req: "Invalid request: HTTP method or URL field is invalid"
+)
 def validate_request(req):
     """HTTP request validation."""
     if req.method not in ['GET', 'POST', 'PUT', 'DELETE']:
@@ -51,7 +70,9 @@ def validate_non_null_fields(req):
     print(f"All required fields validation passed for request with path: {req.path}")
     return req
 
-
+@app.before_request
+def monitor_request():
+    validate_request(request)
 
 from textblob import TextBlob
 import logging
@@ -126,27 +147,14 @@ class Article(db.Model):
     @Aspect.measure_time
     @Aspect.handle_exceptions
     @log_method_call
-    def analyze_sentiment(self, url):
+    def analyze_sentiment(self):
         """
         Analyzes the sentiment of the article's content.
-        - Combines VADER result (30%) and TextBlob sentiment polarity (70%) into a normalized score.
+        - Sentiment score will be used as a factor in the trust score calculation.
         """
-        # Get VADER sentiment score
-        result = keyword_extractor.process_article_and_keywords(url)  # VADER score (-1 to 1)
-        print(result)
-        # Normalize result to 0-1
-        result_normalized = (result + 1) / 2  # Converts -1 to 1 range into 0 to 1
-
         # Use TextBlob to perform sentiment analysis
         blob = TextBlob(self.content)
-        blob_sentiment = blob.sentiment.polarity  # Sentiment polarity (-1 to 1)
-
-        # Normalize TextBlob sentiment to 0-1
-        blob_sentiment_normalized = (blob_sentiment + 1) / 2
-
-        # Calculate the weighted score
-        self.sentiment_subjectivity = (0.3 * result_normalized) + (0.7 * blob_sentiment_normalized)
-        print(self.sentiment_subjectivity)
+        self.sentiment_subjectivity = blob.sentiment.subjectivity
         return self.sentiment_subjectivity
 
     @Aspect.log_execution
@@ -208,10 +216,25 @@ def get_all_articles():
     articles = Article.query.all()
     return jsonify([article.to_dict() for article in articles]), 200
 
+@app.route('/latest-articles', methods=['GET'])
+def get_latest_articles():
+    # Selectăm ultimele 5 articole ordonate descrescător după created_at
+    latest_articles = Article.query.order_by(desc(Article.created_at)).limit(5).all()
+    articles_list = [article.to_dict() for article in latest_articles]
+    return jsonify(articles_list), 200
+
 @app.route('/articles/<int:article_id>', methods=['GET'])
 def get_article(article_id):
     """Get a single article by ID."""
     article = Article.query.get(article_id)
+    if article is None:
+        return jsonify({"error": "Article not found"}), 404
+    return jsonify(article.to_dict()), 200
+
+@app.route('/articles/<path:url>', methods=['GET'])
+def get_article_url(url):
+    """Get a single article by URL."""
+    article = Article.query.filter_by(url=url).first()
     if article is None:
         return jsonify({"error": "Article not found"}), 404
     return jsonify(article.to_dict()), 200
@@ -288,10 +311,19 @@ def scrape_and_create_article():
 
         # aici se pot adăuga metode pentru analiza sentimentului și verificarea consistenței - astea sunt doar asa de test
         #le pot scoate]
-        nlpScore=article.analyze_sentiment(url)
-        print(nlpScore)
+        article.analyze_sentiment()
         article.check_consistency()
 
+        article_content_no_paragraphs = article.content.replace('\n', ' ').replace('\r', ' ')
+        print(f"Content without paragraphs: {article_content_no_paragraphs}")
+        
+        # Preprocess the article content for prediction
+        prediction_data = predict_news([article_content_no_paragraphs])
+        print(f"Prediction data: {prediction_data}")
+        article.ml_model_prediction = float(prediction_data[0])
+        
+        article.trust_score = 0.5 * article.ml_model_prediction + 0.3 * article.sentiment_subjectivity + 0.2 * article.content_consistency  
+        
         db.session.add(article)
         db.session.commit()
 
@@ -339,30 +371,6 @@ def delete_article(article_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
-
-
-
-@app.route('/articles/analyze', methods=['POST'])
-def analyze_article():
-    """
-    Processes an article by its URL, analyzes its sentiment, and updates the sentiment_subjectivity field.
-    """
-    try:
-        data = request.json
-        url = data.get('url')
-
-        if not url:
-            return jsonify({"error": "URL is required"}), 400
-
-        # Search for the article by URL in the database
-
-        result = keyword_extractor.process_article_and_keywords(url)
-        return jsonify({'score': result}), 200
-
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 
 if __name__ == "__main__":
